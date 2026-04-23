@@ -5,12 +5,14 @@ const jwt = require('jsonwebtoken');
 const { check, validationResult } = require('express-validator');
 
 const User = require('../models/User');
+const { authLimiter } = require('../middleware/rateLimiter');
 
 // @route   POST api/auth/register
 // @desc    Register a user
 // @access  Public
 router.post(
   '/register',
+  authLimiter,
   [
     check('username', 'Please add a name').not().isEmpty(),
     check('email', 'Please include a valid email').isEmail(),
@@ -85,6 +87,7 @@ router.post(
 // @access  Public
 router.post(
   '/login',
+  authLimiter,
   [
     check('email', 'Please include a valid email').isEmail(),
     check('password', 'Password is required').exists(),

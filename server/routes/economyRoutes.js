@@ -1,14 +1,30 @@
 const express = require('express');
 const router = express.Router();
 const authMiddleware = require('../middleware/authMiddleware');
+const User = require('../models/User');
 const { purchaseStars, initiateCashOut } = require('../services/economyService');
+
+// The star-purchase and cash-out flows are not production-ready: the Stripe
+// charge and Tremendous gift-card calls in economyService are commented-out
+// placeholders. Gate both routes behind an explicit feature flag so we don't
+// accidentally expose free stars / fake cash-outs in production.
+const economyEnabled = () => process.env.ECONOMY_ENABLED === 'true';
+
+const requireEconomy = (req, res, next) => {
+  if (!economyEnabled()) {
+    return res.status(503).json({
+      msg: 'Star purchases and cash-outs are temporarily disabled.',
+    });
+  }
+  next();
+};
 
 /**
  * @route   POST api/economy/purchase
  * @desc    Purchase Gold and/or Silver stars
  * @access  Private
  */
-router.post('/purchase', authMiddleware, async (req, res) => {
+router.post('/purchase', authMiddleware, requireEconomy, async (req, res) => {
   const { goldAmount, silverAmount } = req.body;
   const userId = req.user.id;
 
@@ -36,7 +52,7 @@ router.post('/purchase', authMiddleware, async (req, res) => {
  * @desc    Initiate a cash-out of Gold Stars for a gift card
  * @access  Private
  */
-router.post('/cash-out', authMiddleware, async (req, res) => {
+router.post('/cash-out', authMiddleware, requireEconomy, async (req, res) => {
   const { euroAmount } = req.body;
   const userId = req.user.id;
 

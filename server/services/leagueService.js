@@ -10,7 +10,13 @@ const economyService = require('./economyService');
  */
 async function createLeague(adminId, leagueData) {
   try {
-    // TODO: Add check to ensure user is an admin
+    // Defense in depth: the admin routes already check isAdmin before calling
+    // this, but the service must not trust its caller.
+    const admin = await User.findById(adminId).select('isAdmin');
+    if (!admin || !admin.isAdmin) {
+      console.error(`createLeague: user ${adminId} is not an admin.`);
+      return null;
+    }
     const newLeague = new League({
       ...leagueData,
       createdBy: adminId,
@@ -49,11 +55,25 @@ async function joinLeague(userId, leagueId) {
     return false;
   }
 
+  const goldStarsCost = league.entryFeeEuros; // 1 EUR = 1 Gold Star
+  let spent = false;
+
+  // Helper so we never leak the user's entry fee if any later step fails.
+  const refund = async (reason) => {
+    if (!spent || !goldStarsCost) return;
+    try {
+      await User.findByIdAndUpdate(userId, { $inc: { goldStars: goldStarsCost } });
+      console.warn(`Refunded ${goldStarsCost} gold stars to ${userId} (${reason}).`);
+    } catch (refundErr) {
+      // If the refund itself fails we surface it loudly so we can reconcile
+      // manually; we do NOT swallow it.
+      console.error(`CRITICAL: failed to refund ${goldStarsCost} stars to ${userId} after ${reason}:`, refundErr);
+    }
+  };
+
   try {
     // 2. Charge entry fee (assuming entryFeeEuros needs to be paid in stars)
-    // This logic may need to be adjusted if paying with real money directly.
-    const goldStarsCost = league.entryFeeEuros; // 1 EUR = 1 Gold Star
-    const spent = await economyService.spendStars(userId, goldStarsCost, 0);
+    spent = await economyService.spendStars(userId, goldStarsCost, 0);
     if (!spent) {
       console.error('Failed to charge entry fee in stars.');
       return false;
@@ -61,11 +81,10 @@ async function joinLeague(userId, leagueId) {
 
     // 3. Add user to a division with space
     let divisionToJoin = league.divisions.find(d => d.players.length < league.maxPlayersPerDivision);
-    
+
     if (!divisionToJoin) {
-      // Or create a new division if the league structure allows
       console.error('No divisions with available space.');
-      // TODO: refund stars if no space is found.
+      await refund('no divisions with available space');
       return false;
     }
 
@@ -76,7 +95,7 @@ async function joinLeague(userId, leagueId) {
     return true;
   } catch (error) {
     console.error(`Error joining league for user ${userId}:`, error);
-    // TODO: Implement refund logic if any step fails.
+    await refund(`unexpected error: ${error.message}`);
     return false;
   }
 }
