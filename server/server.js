@@ -20,13 +20,21 @@ const { reportTournamentMatchWinner } = require('./services/tournamentService');
 
 // Initialisera Express och Socket.IO
 const app = express();
-app.use(cors({ origin: '*' }));
+
+// CORS origin: if CLIENT_URL is set (comma-separated list supported), restrict
+// to those origins. Otherwise allow any origin (useful for dev and for
+// same-origin nginx proxy setups).
+const allowedOrigins = process.env.CLIENT_URL
+  ? process.env.CLIENT_URL.split(',').map(s => s.trim()).filter(Boolean)
+  : '*';
+app.use(cors({ origin: allowedOrigins, credentials: true }));
 
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: "*",
-    methods: ["GET", "POST"]
+    origin: allowedOrigins,
+    methods: ["GET", "POST"],
+    credentials: true,
   }
 });
 

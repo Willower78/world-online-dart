@@ -28,6 +28,10 @@ server.log
 /uploads
 /ai-backend/uploads
 /ai-backend/models/*
+# Keep the shipped YOLO weights in the repo so the Docker image / Railway
+# build has them without us having to wire up a separate release asset.
+!/ai-backend/models/dart_detector.pt
+!/ai-backend/models/README.txt
 !/ai-backend/models/.gitkeep
 
 # Env files

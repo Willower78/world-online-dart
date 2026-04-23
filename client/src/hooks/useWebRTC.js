@@ -1,24 +1,48 @@
 import { useRef, useEffect, useState, useCallback } from 'react';
 import socket from '../socket/socket';
 
-// For a production environment, it is highly recommended to deploy your own TURN server.
-const PEER_CONNECTION_CONFIG = {
-    iceServers: [
+// ICE servers: STUN alone is enough for most home users; a TURN server is
+// required for anyone behind symmetric NAT (often cellular / some corporate
+// networks). In production, set one of these at build time:
+//   - REACT_APP_ICE_SERVERS: a JSON array of RTCIceServer objects.
+//   - REACT_APP_TURN_URL/USERNAME/CREDENTIAL: shorthand for a single TURN entry
+//     (Metered / Twilio / self-hosted coturn).
+// If none are set we fall back to Google's public STUN + the `openrelay`
+// public TURN. openrelay is rate-limited and unreliable — do NOT rely on it
+// for anything real.
+const buildIceServers = () => {
+    if (process.env.REACT_APP_ICE_SERVERS) {
+        try {
+            const parsed = JSON.parse(process.env.REACT_APP_ICE_SERVERS);
+            if (Array.isArray(parsed) && parsed.length) return parsed;
+        } catch (err) {
+            console.warn('[WebRTC] REACT_APP_ICE_SERVERS is not valid JSON; ignoring.', err);
+        }
+    }
+
+    const servers = [
         { urls: 'stun:stun.l.google.com:19302' },
         { urls: 'stun:stun1.l.google.com:19302' },
-        // NOTE: The following is a public, free TURN server for development purposes.
-        {
-            urls: 'turn:openrelay.metered.ca:80',
-            username: 'openrelayproject',
-            credential: 'openrelayproject'
-        },
-        {
-            urls: 'turn:openrelay.metered.ca:443',
-            username: 'openrelayproject',
-            credential: 'openrelayproject'
-        }
-    ],
+    ];
+
+    if (process.env.REACT_APP_TURN_URL) {
+        servers.push({
+            urls: process.env.REACT_APP_TURN_URL,
+            username: process.env.REACT_APP_TURN_USERNAME || '',
+            credential: process.env.REACT_APP_TURN_CREDENTIAL || '',
+        });
+        return servers;
+    }
+
+    // Dev fallback — unreliable but lets things work out of the box.
+    servers.push(
+        { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
+        { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
+    );
+    return servers;
 };
+
+const PEER_CONNECTION_CONFIG = { iceServers: buildIceServers() };
 
 export const useWebRTC = (roomName, localStream) => {
     const [remoteStreams, setRemoteStreams] = useState({});
