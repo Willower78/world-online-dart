@@ -289,6 +289,7 @@ socket.on('video-frame', visionService.handleFrame(io, socket));
         const game = await gameStateManager.getGame(gameId);
         if (game) {
             socket.join(gameId);
+            socket.gameId = gameId;
             const gameDataForClient = { 
                 ...game, 
                 players: game.players.map(p => ({ id: p.id, username: p.username })) 
@@ -335,8 +336,12 @@ socket.on('video-frame', visionService.handleFrame(io, socket));
         });
 
         const opponentSocket = io.sockets.sockets.get(opponent.socketId);
-        if (opponentSocket) opponentSocket.join(gameId);
+        if (opponentSocket) {
+            opponentSocket.join(gameId);
+            opponentSocket.gameId = gameId;
+        }
         socket.join(gameId);
+        socket.gameId = gameId;
 
         await gameStateManager.initializeAndStartGame(gameId, io);
         await emitLobbyUpdate(io);
@@ -362,6 +367,7 @@ socket.on('video-frame', visionService.handleFrame(io, socket));
     });
 
     socket.join(gameId);
+    socket.gameId = gameId;
     await gameStateManager.initializeAndStartGame(gameId, io);
     await emitLobbyUpdate(io);
   });
@@ -380,6 +386,7 @@ socket.on('video-frame', visionService.handleFrame(io, socket));
     });
 
     socket.join(gameId);
+    socket.gameId = gameId;
     await gameStateManager.initializeAndStartGame(gameId, io);
     // No lobby update, as it's a private practice game
   });
@@ -433,8 +440,12 @@ socket.on('video-frame', visionService.handleFrame(io, socket));
     });
 
     const challengerSocket = io.sockets.sockets.get(invite.from.socketId);
-    if (challengerSocket) challengerSocket.join(gameId);
+    if (challengerSocket) {
+        challengerSocket.join(gameId);
+        challengerSocket.gameId = gameId;
+    }
     socket.join(gameId);
+    socket.gameId = gameId;
 
     await gameStateManager.initializeAndStartGame(gameId, io);
     await emitLobbyUpdate(io);
@@ -584,8 +595,14 @@ socket.on('video-frame', visionService.handleFrame(io, socket));
         const player1Socket = io.sockets.sockets.get(player1.socketId);
         const player2Socket = io.sockets.sockets.get(player2.socketId);
 
-        if (player1Socket) player1Socket.join(matchId);
-        if (player2Socket) player2Socket.join(matchId);
+        if (player1Socket) {
+            player1Socket.join(matchId);
+            player1Socket.gameId = matchId;
+        }
+        if (player2Socket) {
+            player2Socket.join(matchId);
+            player2Socket.gameId = matchId;
+        }
         
         await gameStateManager.initializeAndStartGame(matchId, io);
 
@@ -774,8 +791,14 @@ socket.on('video-frame', visionService.handleFrame(io, socket));
         const player1Socket = player1.isBot ? null : io.sockets.sockets.get(player1.socketId);
         const player2Socket = player2.isBot ? null : io.sockets.sockets.get(player2.socketId);
 
-        if (player1Socket) player1Socket.join(matchId);
-        if (player2Socket) player2Socket.join(matchId);
+        if (player1Socket) {
+            player1Socket.join(matchId);
+            player1Socket.gameId = matchId;
+        }
+        if (player2Socket) {
+            player2Socket.join(matchId);
+            player2Socket.gameId = matchId;
+        }
         
         await tournament.save();
 
@@ -803,6 +826,7 @@ socket.on('video-frame', visionService.handleFrame(io, socket));
     if (game) {
       socket.join(gameId);
       socket.emit('initial_spectate_state', game);
+      // NOTE: do not set socket.gameId for spectators so their frames (if any) aren't submitted as throws.
       console.log(`User ${socket.username} (${socket.userId}) started spectating game ${gameId}`);
     } else {
       socket.emit('game_not_found');

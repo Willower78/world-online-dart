@@ -1,7 +1,6 @@
-import React, { useEffect, useState } from 'react';
-import { BrowserRouter as Router, Route, Routes, Navigate, useNavigate } from 'react-router-dom';
-import axios from 'axios';
-import { ToastContainer, toast } from 'react-toastify';
+import React from 'react';
+import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom';
+import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
 // Context
@@ -38,7 +37,7 @@ import LandingPage from './pages/LandingPage';
 import CalibrationPage from './pages/CalibrationPage';
 
 // Import socket to ensure connection initialization
-import socket from './socket/socket';
+import './socket/socket';
 
 function App() {
   return (

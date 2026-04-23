@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { useAuth } from '../context/AuthContext';
 
 import useFrameSubmission from '../hooks/useFrameSubmission';
@@ -8,7 +8,7 @@ import '../pages/GamePage.css'; // This CSS file will be shared by game pages
 
 const Game501Page = ({ game }) => {
     const { user } = useAuth();
-    const [calibration, setCalibration] = React.useState(null); 
+    const [calibration, setCalibration] = React.useState(null);
     React.useEffect(() => {
         const fetchCalibrationData = async () => {
             const dummyCalibration = { "some": "data" };
@@ -20,7 +20,7 @@ const Game501Page = ({ game }) => {
         }
     }, [user?._id]);
 
-    const { localStream, localVideoRef } = useLocalMedia();
+    const { localVideoRef } = useLocalMedia();
     
     const isMyTurn = game?.gameState?.currentPlayerId === user?._id;
 

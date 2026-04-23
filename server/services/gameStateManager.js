@@ -1,3 +1,33 @@
+// Parses a segment identifier into { baseNumber, multiplier }.
+// Accepts both the AI-backend style ("single_20", "double_15", "triple_3",
+// "bull_50", "bull_25", "miss") and the compact style ("S20", "D15", "T3",
+// "D25", "S25"). Returns { baseNumber: 0, multiplier: 0 } if nothing usable
+// can be parsed.
+function parseSegmentSpec(segment, score) {
+  if (segment == null) return { baseNumber: 0, multiplier: 0 };
+  const s = String(segment).toLowerCase().trim();
+  if (!s || s === 'miss') return { baseNumber: 0, multiplier: 0 };
+  if (s === 'bull_50' || s === 'db' || s === 'd25') return { baseNumber: 25, multiplier: 2 };
+  if (s === 'bull_25' || s === 'sb' || s === 's25') return { baseNumber: 25, multiplier: 1 };
+
+  let m = s.match(/^(single|double|triple)_(\d+)$/);
+  if (m) {
+    const mult = m[1] === 'triple' ? 3 : m[1] === 'double' ? 2 : 1;
+    return { baseNumber: parseInt(m[2], 10), multiplier: mult };
+  }
+
+  m = s.match(/^([tds])(\d+)$/);
+  if (m) {
+    const mult = m[1] === 't' ? 3 : m[1] === 'd' ? 2 : 1;
+    return { baseNumber: parseInt(m[2], 10), multiplier: mult };
+  }
+
+  if (typeof score === 'number' && score > 0) {
+    return { baseNumber: score, multiplier: 1 };
+  }
+  return { baseNumber: 0, multiplier: 0 };
+}
+
 class GameStateManager {
   constructor() {
     this.storage = new Map();
@@ -123,10 +153,11 @@ class GameStateManager {
 
       const newScore = gameState.scores[playerId] - score;
       
+      const { multiplier: throwMultiplier } = parseSegmentSpec(segment, score);
       let bust = false;
       if (newScore < 0 || newScore === 1) {
         bust = true;
-      } else if (newScore === 0 && !segment.toLowerCase().startsWith('double')) {
+      } else if (newScore === 0 && throwMultiplier !== 2) {
         bust = true;
       }
 
@@ -161,16 +192,7 @@ class GameStateManager {
       const opponentState = gameState.hits[opponentId];
       const playerUsername = players.find(p => String(p.id) === String(playerId)).username;
 
-      const parseSegment = (segment, score) => {
-        if (segment === 'D25') return { baseNumber: 25, multiplier: 2 };
-        if (segment === 'S25') return { baseNumber: 25, multiplier: 1 };
-        
-        const multiplier = segment.startsWith('T') ? 3 : segment.startsWith('D') ? 2 : 1;
-        const baseNumber = score / multiplier;
-        return { baseNumber, multiplier };
-      };
-
-      const { baseNumber, multiplier } = parseSegment(segment, score);
+      const { baseNumber, multiplier } = parseSegmentSpec(segment, score);
       const CRICKET_NUMBERS = [15, 16, 17, 18, 19, 20, 25];
 
       if (CRICKET_NUMBERS.includes(baseNumber)) {
@@ -190,7 +212,7 @@ class GameStateManager {
                 gameState.scores[playerId] += pointsScored;
                 gameState.lastMessage = `${playerUsername} scored ${pointsScored} points!`;
             } else {
-                gameState.lastMessage = `${playerUsername} hit ${segment}, but ${players.find(p=>String(p.id) === opponentId).username} has it closed. No points.`;
+                gameState.lastMessage = `${playerUsername} hit ${segment}, but ${players.find(p=>String(p.id) === String(opponentId)).username} has it closed. No points.`;
             }
         }
         
@@ -218,7 +240,8 @@ class GameStateManager {
     // --- 301 DIDO logic ---
     else if (gameType === '301_dido') {
         const playerUsername = players.find(p => String(p.id) === String(playerId)).username;
-        const isDouble = segment.toLowerCase().startsWith('d');
+        const { multiplier: throwMultiplier } = parseSegmentSpec(segment, score);
+        const isDouble = throwMultiplier === 2;
         let bust = false;
 
         // --- Double In Logic ---
@@ -276,14 +299,7 @@ class GameStateManager {
     else if (gameType === 'bobs_27') {
       const playerUsername = players.find(p => String(p.id) === String(playerId)).username;
 
-      const parseSegment = (segment) => {
-        const multiplier = segment.startsWith('T') ? 3 : segment.startsWith('D') ? 2 : segment.startsWith('S') ? 1 : 1;
-        const baseNumberStr = segment.replace(/^[TDS]/, '');
-        const baseNumber = baseNumberStr === 'BULL' ? 25 : parseInt(baseNumberStr, 10);
-        return { baseNumber, multiplier };
-      };
-      
-      const { baseNumber, multiplier } = parseSegment(segment);
+      const { baseNumber, multiplier } = parseSegmentSpec(segment, score);
       const target = gameState.currentTarget;
       const targetValue = target * 2;
 

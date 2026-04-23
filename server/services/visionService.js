@@ -11,7 +11,7 @@ const AI_SERVICE_URL = process.env.AI_SERVICE_URL || 'http://localhost:5001/dete
  * @param {object} socket - The socket.io socket object for the client.
  * @returns {function} An async function that processes the frame.
  */
-const handleFrame = (io, socket) => async ({ image, calibration }) => {
+const handleFrame = (io, socket) => async ({ image, calibration, gameId: payloadGameId }) => {
     try {
         // Forward the image data to the AI service
         const response = await axios.post(AI_SERVICE_URL, {
@@ -24,8 +24,9 @@ const handleFrame = (io, socket) => async ({ image, calibration }) => {
         if (detection && detection.score != null) {
             console.log(`[visionService] AI detection result: Score ${detection.score}, Segment: ${detection.segment}`);
 
-            // Get game and user details attached to the socket object upon joining a game
-            const gameId = socket.gameId;
+            // Prefer an explicit gameId from the frame payload; fall back to whatever
+            // game the socket last joined.
+            const gameId = payloadGameId || socket.gameId;
             const userId = socket.userId;
 
             if (gameId && userId) {

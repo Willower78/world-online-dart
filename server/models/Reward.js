@@ -53,7 +53,8 @@ const RewardSchema = new mongoose.Schema({
 });
 
 RewardSchema.index({ userId: 1, status: 1 });
-RewardSchema.index({ code: 1 });
+// `code` already has a unique+sparse index via `unique: true` on the field; no
+// need to declare a second one here.
 RewardSchema.index({ expiresAt: 1 });
 
 module.exports = mongoose.model('Reward', RewardSchema);
