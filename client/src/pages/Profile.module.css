@@ -1,0 +1,306 @@
+.contentPadding {
+    padding: 20px;
+    max-width: 1100px;
+    margin: 0 auto;
+}
+
+.profileGrid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+}
+
+@media (max-width: 800px) {
+    .profileGrid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.leftColumn, .rightColumn {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.card {
+    background-color: var(--bg-card);
+    border-radius: var(--radius-l);
+    padding: 25px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.cardTitle {
+    margin-top: 0;
+    margin-bottom: 20px;
+    font-family: var(--font-header);
+    color: var(--text-white);
+    font-size: 1.2rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    padding-bottom: 10px;
+}
+
+/* --- Profile Header --- */
+.profileHeader {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-bottom: 25px;
+}
+
+.avatarContainer {
+    position: relative;
+    margin-bottom: 15px;
+}
+
+.avatar {
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 4px solid var(--accent-blue);
+    box-shadow: 0 0 20px rgba(4, 245, 255, 0.2);
+}
+
+.uploadOverlay {
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    background: var(--accent-blue);
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+    overflow: hidden;
+}
+
+.fileInput {
+    position: absolute;
+    opacity: 0;
+    width: 100%;
+    height: 100%;
+    cursor: pointer;
+}
+
+.username {
+    margin: 0 0 5px 0;
+    font-size: 1.8rem;
+    font-family: var(--font-header);
+    color: var(--text-white);
+}
+
+.location {
+    color: var(--text-gray);
+    margin: 0 0 10px 0;
+    font-size: 1rem;
+}
+
+.classificationBadge {
+    padding: 5px 12px;
+    border-radius: var(--radius-pill);
+    font-weight: bold;
+    text-transform: uppercase;
+    font-size: 0.8rem;
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--text-white);
+}
+
+.classificationBadge.pro { background: var(--accent-green); color: black; }
+.classificationBadge.amateur { background: var(--accent-blue); color: black; }
+.classificationBadge.beginner { background: var(--text-gray); color: black; }
+
+/* --- Stats Row --- */
+.statsRow {
+    display: flex;
+    justify-content: space-around;
+    padding: 10px 0;
+}
+
+.statItem {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.statValue {
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: var(--accent-blue);
+    font-family: var(--font-header);
+}
+
+.statLabel {
+    font-size: 0.8rem;
+    color: var(--text-gray);
+    text-transform: uppercase;
+}
+
+/* --- Actions --- */
+.centeredActions {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    align-items: center;
+    width: 100%;
+}
+
+.btn {
+    padding: 12px 24px;
+    border: none;
+    border-radius: var(--radius-m);
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: var(--font-header);
+}
+
+.wideBtn {
+    width: 80%;
+    max-width: 300px;
+}
+
+.btnPrimary {
+    background: var(--accent-blue);
+    color: var(--bg-dark);
+}
+
+.btnPrimary:hover {
+    filter: brightness(1.1);
+    transform: translateY(-2px);
+}
+
+.btnSecondary {
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--text-white);
+}
+
+.btnSecondary:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.btnLogout {
+    background: transparent;
+    border: 1px solid var(--accent-red);
+    color: var(--accent-red);
+}
+
+.btnLogout:hover {
+    background: var(--accent-red);
+    color: white;
+}
+
+/* --- Forms --- */
+.editForm {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.formGroup {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.label {
+    color: var(--text-gray);
+    font-size: 0.9rem;
+}
+
+.input {
+    background: var(--bg-input);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: white;
+    padding: 10px;
+    border-radius: var(--radius-s);
+}
+
+.infoGrid p {
+    margin: 10px 0;
+    color: var(--text-gray);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    padding-bottom: 5px;
+}
+
+.infoGrid strong {
+    color: var(--text-white);
+    margin-right: 5px;
+}
+
+.premiumText {
+    color: #ffd700;
+    font-weight: bold;
+}
+
+/* --- Match History --- */
+.matchList {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.matchItem {
+    background: rgba(255, 255, 255, 0.03);
+    margin-bottom: 10px;
+    border-radius: var(--radius-s);
+    padding: 15px;
+    cursor: pointer;
+    transition: background 0.2s;
+    border: 1px solid transparent;
+}
+
+.matchItem:hover {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.1);
+}
+
+.matchSummary {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.matchResult {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.winIndicator {
+    color: var(--accent-green);
+    font-weight: bold;
+    font-size: 1.2rem;
+}
+
+.lossIndicator {
+    color: var(--accent-red);
+    font-weight: bold;
+    font-size: 1.2rem;
+}
+
+.opponentName {
+    font-weight: 500;
+    color: var(--text-white);
+}
+
+.matchDate {
+    font-size: 0.8rem;
+    color: var(--text-gray);
+}
+
+.matchDetails {
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    color: var(--text-gray);
+    font-size: 0.9rem;
+}
+
+.feedback {
+    text-align: center;
+    color: var(--accent-green);
+    margin-top: 10px;
+}

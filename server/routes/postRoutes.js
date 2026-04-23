@@ -79,8 +79,8 @@ router.get('/feed', auth, async (req, res) => {
                 { 'isGlobal': true }                  // ELLER inlägg som är globala
             ]
         })
-            .populate('user', ['username'])       // Fyll på med författarens användarnamn
-            .populate('comments.user', ['username']) // Fyll på med kommentarers författare
+            .populate('user', ['username', 'profilePicture'])       // Fyll på med författarens användarnamn och bild
+            .populate('comments.user', ['username', 'profilePicture']) // Fyll på med kommentarers författare och bild
             .sort({ createdAt: -1 })       // Sort by newest first
             .limit(50);                     // Limit to 50 posts
 
@@ -158,7 +158,7 @@ router.post('/comment/:id', auth, async (req, res) => {
         // Meddela alla anslutna klienter att flödet har uppdaterats
         req.app.get('socketio').emit('feed_updated');
 
-        const populatedPost = await Post.findById(post._id).populate('comments.user', ['username']);
+        const populatedPost = await Post.findById(post._id).populate('comments.user', ['username', 'profilePicture']);
         res.json(populatedPost);
     } catch (err) {
         console.error(err.message);
@@ -186,7 +186,10 @@ router.delete('/:id', auth, async (req, res) => {
         // If post has media, delete the file from the server
         if (post.mediaUrl) {
             // Construct the full path to the file
-            const filePath = path.join(__dirname, '..', '..', post.mediaUrl);
+            // Backa ett steg (från 'routes' till 'server') och lägg till sökvägen
+            const relativeMediaUrl = post.mediaUrl.startsWith('/') ? post.mediaUrl.substring(1) : post.mediaUrl;
+            const filePath = path.join(__dirname, '..', relativeMediaUrl);
+            
             fs.unlink(filePath, (err) => {
                 if (err) console.error(`Failed to delete media file: ${filePath}`, err);
             });

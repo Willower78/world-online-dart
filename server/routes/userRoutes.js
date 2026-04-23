@@ -6,6 +6,7 @@ const path = require('path');
 const auth = require('../middleware/authMiddleware'); // Importera vår middleware
 const User = require('../models/User');
 const Match = require('../models/Match');
+const League = require('../models/League');
 
 // --- Multer-konfiguration för profilbild-uppladdning ---
 const storage = multer.diskStorage({
@@ -32,7 +33,7 @@ router.get('/me', auth, async (req, res) => {
     // Hämta hela användarobjektet från databasen.
     // Vi specificerar exakt vilka fält vi vill ha för att vara säkra på att få med allt.
     const user = await User.findById(req.user.id).select(
-      'username email createdAt friends friendRequests isAdmin stripeCustomerId subscriptionStatus profilePicture location birthdate'
+      'username email createdAt friends friendRequests isAdmin stripeCustomerId subscriptionStatus profilePicture location birthdate goldStars silverStars realName nickname address city country classification stats'
     );
     res.json(user);
   } catch (err) {
@@ -42,10 +43,10 @@ router.get('/me', auth, async (req, res) => {
 });
 
 // @route   PUT /api/users/me
-// @desc    Update current user's profile (location, birthdate)
+// @desc    Update current user's profile
 // @access  Private
 router.put('/me', auth, async (req, res) => {
-  const { location, birthdate } = req.body;
+  const { location, birthdate, realName, nickname, address, city, country } = req.body;
   try {
     // ---- KRITISK KORRIGERING: Hämta hela dokumentet ----
     const user = await User.findById(req.user.id);
@@ -53,6 +54,11 @@ router.put('/me', auth, async (req, res) => {
 
     if (location !== undefined) user.location = location;
     if (birthdate !== undefined) user.birthdate = birthdate;
+    if (realName !== undefined) user.realName = realName;
+    if (nickname !== undefined) user.nickname = nickname;
+    if (address !== undefined) user.address = address;
+    if (city !== undefined) user.city = city;
+    if (country !== undefined) user.country = country;
 
     await user.save();
 
@@ -98,7 +104,9 @@ router.get('/search', auth, async (req, res) => {
     try {
         const searchQuery = req.query.q;
         if (!searchQuery || searchQuery.trim() === '') { return res.json([]); }
-        const users = await User.find({ username: { $regex: searchQuery, $options: 'i' }, _id: { $ne: req.user.id } }).limit(10).select('username');
+        const users = await User.find({ username: { $regex: searchQuery, $options: 'i' }, _id: { $ne: req.user.id } })
+            .limit(20)
+            .select('username profilePicture location classification');
         res.json(users);
     } catch (err) {
         console.error(err.message);
@@ -125,7 +133,7 @@ router.get('/leaderboard', auth, async (req, res) => {
       // Steg 5: Rensa upp resultatet
       { $unwind: '$user' }, // $unwind för att omvandla 'user'-arrayen till ett objekt
       // Steg 6: Formatera output
-      { $project: { _id: 0, userId: '$user._id', username: '$user.username', wins: '$wins' } }
+      { $project: { _id: 0, userId: '$user._id', username: '$user.username', wins: '$wins', profilePicture: '$user.profilePicture' } }
     ]);
     res.json(leaderboard);
   } catch (err) {
@@ -140,7 +148,7 @@ router.get('/leaderboard', auth, async (req, res) => {
 router.get('/:userId', auth, async (req, res) => {
   try {
     // Välj vilka fält som ska vara publika
-    const user = await User.findById(req.params.userId).select('username createdAt profilePicture location birthdate');
+    const user = await User.findById(req.params.userId).select('username createdAt profilePicture location birthdate classification');
     if (!user) {
       return res.status(404).json({ msg: 'User not found' });
     }
@@ -199,7 +207,7 @@ router.get('/admin/all', auth, async (req, res) => {
 });
 
 // @route   PUT /api/users/admin/manage/:userId
-// @desc    Update a user's admin status
+// @desc    Update a user's role and details (Admin only)
 // @access  Admin
 router.put('/admin/manage/:userId', auth, async (req, res) => {
   try {
@@ -208,15 +216,35 @@ router.put('/admin/manage/:userId', auth, async (req, res) => {
       return res.status(403).json({ msg: 'Access denied. Admins only.' });
     }
 
-    const { isAdmin } = req.body;
+    const { role, federationRegion } = req.body;
     const targetUser = await User.findById(req.params.userId);
     if (!targetUser) {
       return res.status(404).json({ msg: 'User not found.' });
     }
 
-    targetUser.isAdmin = isAdmin;
+    // Prevent removing own admin status accidentally (optional safety)
+    if (targetUser._id.toString() === req.user.id && role !== 'admin') {
+         // Allow it, but maybe warn? For now, we allow it.
+    }
+
+    if (role) targetUser.role = role;
+    
+    // Sync isAdmin flag for backward compatibility
+    if (role === 'admin') targetUser.isAdmin = true;
+    else if (role) targetUser.isAdmin = false;
+
+    if (federationRegion !== undefined) targetUser.federationRegion = federationRegion;
+
     await targetUser.save();
-    res.json({ msg: `User ${targetUser.username} has been updated.`, user: { _id: targetUser._id, isAdmin: targetUser.isAdmin } });
+    
+    res.json({ 
+        msg: `User ${targetUser.username} updated.`, 
+        user: { 
+            _id: targetUser._id, 
+            role: targetUser.role, 
+            federationRegion: targetUser.federationRegion 
+        } 
+    });
   } catch (err) {
     console.error(err.message);
     res.status(500).send('Server Error');
@@ -267,6 +295,63 @@ router.get('/:userId/matches', auth, async (req, res) => {
     console.error(err.message);
     res.status(500).send('Server Error');
   }
+});
+
+// @route   GET /api/users/me/matches/scheduled
+// @desc    Get a user's upcoming scheduled league matches
+// @access  Private
+router.get('/me/matches/scheduled', auth, async (req, res) => {
+    try {
+        const userId = req.user.id;
+        // Find all leagues in progress
+        const activeLeagues = await League.find({ status: 'InProgress' }).populate({
+            path: 'divisions.schedule.player1',
+            select: 'username profilePicture'
+        }).populate({
+            path: 'divisions.schedule.player2',
+            select: 'username profilePicture'
+        });
+
+        const myScheduledMatches = [];
+
+        activeLeagues.forEach(league => {
+            league.divisions.forEach(division => {
+                // Check if the user is in this division
+                const isPlayerInDivision = division.players.some(pId => pId.toString() === userId);
+                
+                if (isPlayerInDivision) {
+                    division.schedule.forEach(match => {
+                        // Check if the user is in this match and it's still scheduled
+                        if (match.status === 'Scheduled' && (match.player1?._id.toString() === userId || match.player2?._id.toString() === userId)) {
+                            
+                            const opponent = match.player1._id.toString() === userId ? match.player2 : match.player1;
+                            
+                            if (opponent) { // Make sure opponent exists
+                                myScheduledMatches.push({
+                                    leagueName: league.name,
+                                    leagueId: league._id,
+                                    division: division.divisionNumber,
+                                    matchId: match._id,
+                                    week: match.week,
+                                    opponent: {
+                                        _id: opponent._id,
+                                        username: opponent.username,
+                                        profilePicture: opponent.profilePicture
+                                    },
+                                    proposedDate: match.proposedDate
+                                });
+                            }
+                        }
+                    });
+                }
+            });
+        });
+
+        res.json(myScheduledMatches);
+    } catch (err) {
+        console.error("Error fetching scheduled matches:", err.message);
+        res.status(500).send('Server Error');
+    }
 });
 
 // @route   POST /api/users/me/grant-premium-dev

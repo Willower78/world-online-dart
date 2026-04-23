@@ -1,0 +1,85 @@
+/* Main container for the Bob's 27 game screen */
+.gameContainer {
+    display: grid;
+    grid-template-columns: 25vw 1fr 25vw;
+    grid-template-rows: 1fr auto;
+    grid-template-areas:
+        "mycam center oppcam"
+        "statusbar statusbar statusbar";
+    height: 100vh;
+    width: 100vw;
+    background-color: #1a1a2e;
+    color: white;
+    gap: 1rem;
+    padding: 1rem;
+}
+
+/* --- Camera Areas --- */
+.myCameraArea, .opponentCameraArea {
+    background-color: #000;
+    border-radius: 8px;
+    grid-row: 1 / 2;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.myCameraArea { grid-area: mycam; }
+.opponentCameraArea { grid-area: oppcam; }
+.noVideo { color: #888; }
+
+/* --- Center Column --- */
+.centerColumn {
+    grid-area: center;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    overflow-y: auto;
+}
+
+/* --- Bob's 27 Scoreboard --- */
+.scoreboard {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background-color: #2a2a3e;
+    padding: 1.5rem;
+    border-radius: 12px;
+    gap: 1rem;
+    text-align: center;
+}
+.playerHeader { 
+    transition: all 0.3s ease; 
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+.playerHeader.activePlayer {
+    transform: scale(1.05);
+    color: #ffc107;
+}
+.playerHeader h2 { margin: 0 0 0.5rem 0; }
+.playerScore { font-size: 2rem; font-weight: bold; }
+.currentTarget { font-size: 1.5rem; color: #6a6af0; }
+
+
+/* --- Input Section --- */
+.inputSection {
+    background-color: #2a2a3e;
+    padding: 1.5rem;
+    border-radius: 12px;
+    text-align: center;
+}
+.inputSection h4 { margin-top: 0; }
+.inputSection p { font-size: 1.2rem; color: #ccc; }
+
+
+.winnerBanner { text-align: center; padding: 2rem; background-color: #28a745; border-radius: 12px; }
+.winnerBanner h2 { margin: 0; color: white; }
+
+/* --- Status Bar --- */
+.statusBar {
+    grid-area: statusbar;
+    text-align: center;
+    padding: 0.8rem;
+    background-color: #101020;
+}

@@ -1,0 +1,85 @@
+.contentPadding {
+  padding: 1rem;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+.statCard {
+  background-color: var(--bg-card);
+  padding: 1.5rem;
+  border-radius: var(--radius-m);
+  text-align: center;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.statValue {
+  font-size: 2.5rem;
+  font-weight: bold;
+  color: var(--accent-blue);
+  margin: 0;
+}
+
+.statTitle {
+  margin: 0.5rem 0 0.25rem 0;
+  color: var(--text-white);
+  font-size: 1.1rem;
+}
+
+.statSubtext {
+  font-size: 0.8rem;
+  color: var(--text-gray);
+  margin: 0;
+}
+
+.card {
+  background-color: var(--bg-card);
+  padding: 1.5rem;
+  border-radius: var(--radius-m);
+  margin-top: 1rem;
+}
+
+.matchList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.matchItem {
+  border-bottom: 1px solid var(--bg-sidebar);
+  padding: 1rem 0;
+}
+.matchItem:last-child {
+  border-bottom: none;
+}
+
+.matchSummary {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 1rem;
+}
+
+.win {
+  color: var(--accent-green);
+  font-weight: bold;
+}
+
+.loss {
+  color: var(--accent-red);
+  font-weight: bold;
+}
+
+.gameType {
+  color: var(--text-gray);
+  font-style: italic;
+}
+
+.matchDate {
+  color: var(--text-gray);
+  font-size: 0.9rem;
+}

@@ -1,0 +1,51 @@
+import os
+import shutil
+import yaml
+from ultralytics import YOLO
+
+# Paths
+drive_path = '/content/drive/MyDrive/dart_dataset/dataset'
+local_path = '/content/local_dataset'
+yaml_path = os.path.join(local_path, 'data.yaml')
+
+print("🔁 OPTIMIZING SETUP: Moving data to local machine for speed...")
+
+# 1. Copy Data to Local Runtime
+# This prevents the "hanging" issue by moving files off the slow Google Drive
+if not os.path.exists(local_path):
+    print(f"⏳ Copying 30k+ files from Drive... Please wait (approx 5-10 mins).")
+    print("   Do not stop this process. It is necessary.")
+    try:
+        shutil.copytree(drive_path, local_path)
+        print("✅ Copy complete! Training will now be fast.")
+    except Exception as e:
+        print(f"❌ Copy failed: {e}")
+else:
+    print("✅ Dataset already loaded locally.")
+
+# 2. Update data.yaml
+if os.path.exists(yaml_path):
+    with open(yaml_path, 'r') as f:
+        data = yaml.safe_load(f)
+
+    # Point to the new local path
+    data['path'] = local_path
+    data['train'] = 'images/train'
+    data['val'] = 'images/val'
+
+    with open(yaml_path, 'w') as f:
+        yaml.dump(data, f)
+    print("✅ data.yaml updated for local training.")
+
+# 3. Train
+print("\n🚀 STARTING TRAINING (Fast Mode)...")
+model = YOLO('yolov8n.pt')
+
+model.train(
+    data=yaml_path,
+    epochs=10,
+    imgsz=256,
+    batch=16,
+    project='/content/drive/MyDrive/training_runs', # Save results to Drive
+    name='dart_final_run'
+)

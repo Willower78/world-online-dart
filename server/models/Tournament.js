@@ -12,6 +12,29 @@ const TournamentSchema = new Schema({
         enum: ['501', 'cricket'],
         required: true
     },
+    category: {
+        type: String,
+        enum: ['Amateur', 'Pro'],
+        required: true
+    },
+    entryFeeGoldStars: {
+        type: Number,
+        default: 0
+    },
+    entryFeeSilverStars: {
+        type: Number,
+        default: 0
+    },
+    allowedClassifications: [{
+        type: String,
+        enum: ['Beginner', 'Amateur', 'Pro']
+    }],
+    prizeDistribution: {
+        first: { type: Number, required: true },
+        second: { type: Number, required: true },
+        semiFinalists: { type: Number, default: 0 },
+        house: { type: Number, required: true }
+    },
     status: {
         type: String,
         enum: ['pending', 'active', 'completed'],

@@ -1,0 +1,81 @@
+.container {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    margin-top: 20px;
+}
+
+.promoCard {
+    padding: 20px;
+    border-radius: var(--radius-m);
+    color: var(--text-white);
+    position: relative;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.promoCard h3 {
+    margin: 0 0 10px 0;
+    font-family: var(--font-header);
+    font-size: 1.2rem;
+    position: relative;
+    z-index: 1;
+}
+
+.promoCard p {
+    margin: 0 0 15px 0;
+    font-size: 0.9rem;
+    opacity: 0.9;
+    position: relative;
+    z-index: 1;
+}
+
+/* Premium Card Style */
+.premium {
+    background: linear-gradient(135deg, #FFD700, #B8860B);
+    color: #000;
+}
+
+.premium .button {
+    background: #000;
+    color: #FFD700;
+}
+
+/* Tournament Card Style */
+.tournament {
+    background: linear-gradient(135deg, var(--bg-sidebar), #1a001b);
+    border-left: 4px solid var(--accent-red);
+}
+
+/* League Card Style */
+.league {
+    background: linear-gradient(135deg, var(--bg-sidebar), #002626);
+    border-left: 4px solid var(--accent-green);
+}
+
+.button, .buttonOutline {
+    display: inline-block;
+    padding: 8px 16px;
+    border-radius: var(--radius-s);
+    text-decoration: none;
+    font-weight: bold;
+    font-size: 0.85rem;
+    transition: transform 0.2s;
+    position: relative;
+    z-index: 1;
+}
+
+.button:hover, .buttonOutline:hover {
+    transform: translateY(-2px);
+}
+
+.buttonOutline {
+    background: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    color: var(--text-white);
+}
+
+.buttonOutline:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: var(--text-white);
+}

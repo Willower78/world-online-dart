@@ -5,12 +5,14 @@ const jwt = require('jsonwebtoken');
 const { check, validationResult } = require('express-validator');
 
 const User = require('../models/User');
+const { authLimiter } = require('../middleware/rateLimiter');
 
 // @route   POST api/auth/register
 // @desc    Register a user
 // @access  Public
 router.post(
   '/register',
+  authLimiter,
   [
     check('username', 'Please add a name').not().isEmpty(),
     check('email', 'Please include a valid email').isEmail(),
@@ -22,7 +24,7 @@ router.post(
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const { username, email, password } = req.body;
+    const { username, email, password, realName, nickname, address, city, country, estimatedAverage } = req.body;
 
     try {
       let user = await User.findOne({ email });
@@ -30,7 +32,27 @@ router.post(
         return res.status(400).json({ msg: 'User already exists' });
       }
 
-      user = new User({ username, email, password });
+      let classification = 'Unranked';
+      if (estimatedAverage) {
+          const avg = parseFloat(estimatedAverage);
+          if (avg >= 85) classification = 'Pro';
+          else if (avg >= 46) classification = 'Amateur';
+          else if (avg > 0) classification = 'Beginner';
+      }
+
+      user = new User({ 
+          username, 
+          email, 
+          password,
+          realName,
+          nickname,
+          address,
+          city,
+          country,
+          classification,
+          // Store estimated average in stats as a starting point? 
+          // Or just leave it for classification. Let's just set classification.
+      });
 
       const salt = await bcrypt.genSalt(10);
       user.password = await bcrypt.hash(password, salt);
@@ -65,6 +87,7 @@ router.post(
 // @access  Public
 router.post(
   '/login',
+  authLimiter,
   [
     check('email', 'Please include a valid email').isEmail(),
     check('password', 'Password is required').exists(),

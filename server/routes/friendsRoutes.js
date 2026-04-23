@@ -136,15 +136,17 @@ router.get('/', auth, async (req, res) => {
         }
 
         const onlineUsers = req.app.get('onlineUsers');
-        const friendsWithStatus = user.friends.map(friend => {
-            const friendObj = friend.toObject();
-            friendObj.isOnline = !!onlineUsers[friend._id.toString()];
-            return friendObj;
-        });
+        const friendsWithStatus = user.friends
+            .filter(friend => friend) // Filter out null/undefined friends
+            .map(friend => {
+                const friendObj = friend.toObject();
+                friendObj.isOnline = !!onlineUsers[friend._id.toString()];
+                return friendObj;
+            });
 
         res.json({
             friends: friendsWithStatus,
-            friendRequests: user.friendRequests
+            friendRequests: user.friendRequests.filter(req => req) // Filter null requests too
         });
     } catch (err) {
         console.error(err.message);

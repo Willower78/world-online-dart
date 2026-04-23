@@ -1,0 +1,145 @@
+.walletContainer {
+    padding: 2rem;
+    max-width: 900px;
+    margin: auto;
+    color: #e0e0e0;
+}
+
+.title {
+    text-align: center;
+    margin-bottom: 2rem;
+    font-size: 2.5rem;
+    color: #ffffff;
+    font-weight: 600;
+}
+
+.balanceDisplay {
+    display: flex;
+    justify-content: center;
+    gap: 2rem;
+    margin-bottom: 3rem;
+    background-color: #2a2a3e;
+    padding: 2rem;
+    border-radius: 12px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+}
+
+.balanceItem {
+    text-align: center;
+    padding: 1rem 2rem;
+    border-radius: 8px;
+    background-color: #3a3a5a;
+    min-width: 150px;
+}
+
+.balanceItem h2 {
+    margin: 0 0 0.5rem 0;
+    font-size: 2.8rem;
+    color: #ffd700; /* Gold color for stars */
+}
+
+.balanceItem:last-child h2 {
+    color: #c0c0c0; /* Silver color */
+}
+
+.balanceItem span {
+    font-size: 1rem;
+    color: #b0b0d0;
+}
+
+.walletSection {
+    background-color: #2a2a3e;
+    padding: 1.5rem 2rem;
+    border-radius: 12px;
+    margin-bottom: 2rem;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+}
+
+.walletSection h3 {
+    margin-top: 0;
+    font-size: 1.5rem;
+    border-bottom: 2px solid #4a4a6a;
+    padding-bottom: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+.purchaseOptions {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+}
+
+.option {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background-color: #3a3a5a;
+    padding: 1rem;
+    border-radius: 8px;
+}
+
+.actionButton {
+    background-color: #6a6af0;
+    color: white;
+    border: none;
+    padding: 0.75rem 1.25rem;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: background-color 0.2s ease;
+}
+
+.actionButton:hover {
+    background-color: #5a5add;
+}
+
+.cashOutForm {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.inputField {
+    padding: 0.75rem;
+    border-radius: 6px;
+    border: 1px solid #4a4a6a;
+    background-color: #202030;
+    color: #e0e0e0;
+    font-size: 1rem;
+    width: 150px;
+}
+
+.actionButton.primary {
+    background-color: #28a745; /* Green for confirm */
+}
+
+.actionButton.primary:hover {
+    background-color: #218838;
+}
+
+.transactionList {
+    list-style: none;
+    padding: 0;
+}
+
+.transactionList li {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.75rem 0;
+    border-bottom: 1px solid #3a3a5a;
+}
+
+.transactionList li:last-child {
+    border-bottom: none;
+}
+
+.credit {
+    color: #28a745; /* Green */
+    font-weight: bold;
+}
+
+.debit {
+    color: #dc3545; /* Red */
+    font-weight: bold;
+}

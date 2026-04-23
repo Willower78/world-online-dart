@@ -1,0 +1,182 @@
+.detailContainer {
+    padding: 20px;
+    color: var(--text-white);
+}
+
+.header {
+    text-align: center;
+    margin-bottom: 30px;
+}
+
+.header h1 {
+    font-size: 2.5rem;
+    color: var(--accent-blue);
+    margin: 0;
+    font-family: var(--font-header);
+}
+
+.header p {
+    font-size: 1.2rem;
+    color: var(--text-gray);
+}
+
+.actionButtons {
+    display: flex;
+    justify-content: center;
+    gap: 15px;
+    margin-top: 20px;
+}
+
+.actionButton {
+    padding: 10px 20px;
+    border: none;
+    border-radius: var(--radius-pill);
+    font-size: 1rem;
+    cursor: pointer;
+    font-weight: bold;
+    font-family: var(--font-main);
+}
+
+.joinButton {
+    background-color: var(--accent-green);
+    color: var(--bg-dark);
+}
+
+.startButton {
+    background-color: var(--accent-red);
+    color: var(--text-white);
+}
+
+.bracketContainer {
+    display: flex;
+    overflow-x: auto;
+    padding: 20px;
+}
+
+.round {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-around;
+    flex-shrink: 0;
+    min-width: 250px;
+}
+
+.roundTitle {
+    text-align: center;
+    font-size: 1.2rem;
+    margin-bottom: 20px;
+    color: var(--text-gray);
+}
+
+.match {
+    background-color: var(--bg-card);
+    border-radius: var(--radius-s);
+    margin-bottom: 30px;
+    position: relative;
+    border: 1px solid var(--bg-sidebar);
+}
+
+.player {
+    padding: 10px;
+    border-bottom: 1px solid var(--bg-sidebar);
+}
+
+.player:last-child {
+    border-bottom: none;
+}
+
+.winner {
+    font-weight: bold;
+    color: var(--accent-green);
+}
+
+.spectateLink {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--accent-blue);
+    text-decoration: none;
+    font-size: 0.9rem;
+}
+
+.playerLink {
+    color: inherit;
+    text-decoration: none;
+}
+
+.startMatchButton {
+    background-color: var(--accent-green);
+    color: var(--bg-dark);
+    border: none;
+    border-radius: 4px;
+    padding: 5px 10px;
+    cursor: pointer;
+    display: block;
+    width: calc(100% - 20px);
+    margin: 10px;
+    text-align: center;
+}
+
+/* NYTT: Styles för deltagarlistan */
+.participantsContainer {
+    background-color: var(--bg-card);
+    padding: 20px;
+    border-radius: var(--radius-m);
+    margin-bottom: 30px;
+    max-width: 600px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.participantsTitle {
+    text-align: center;
+    margin-top: 0;
+    color: var(--text-white);
+    font-size: 1.5rem;
+}
+
+.participantsList {
+    list-style: none;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 10px;
+}
+
+.participantsList li {
+    background-color: var(--bg-sidebar);
+    padding: 10px;
+    border-radius: 5px;
+    text-align: center;
+}
+
+/* --- Responsive Design --- */
+@media (max-width: 768px) {
+    .header h1 {
+        font-size: 2rem;
+    }
+
+    .actionButtons {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .bracketContainer {
+        padding: 10px 0;
+    }
+
+    .round {
+        min-width: 200px; /* Reduce round width */
+    }
+
+    .participantsContainer {
+        margin-left: 10px;
+        margin-right: 10px;
+        padding: 15px;
+    }
+
+    .participantsList {
+        grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    }
+}

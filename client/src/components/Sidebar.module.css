@@ -1,0 +1,176 @@
+.sidebar {
+    display: flex;
+    flex-direction: column;
+    width: 220px;
+    background-color: var(--bg-sidebar);
+    color: var(--text-gray);
+    padding: 15px;
+    height: 100dvh; /* Use dynamic viewport height for mobile browsers */
+    box-sizing: border-box;
+    flex-shrink: 0;
+    overflow-y: auto; /* Enable vertical scrolling */
+    -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
+    position: sticky; /* Keeps it in view if used in a flex container that scrolls, but usually fixed is better for sidebar */
+    top: 0;
+}
+
+.userProfile {
+    text-align: center;
+    margin-bottom: 40px;
+    color: var(--text-white);
+}
+
+.avatarCircle {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    background-color: var(--bg-card);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 15px;
+    font-size: 36px;
+    color: var(--text-gray);
+}
+
+.userProfile h3 {
+    margin: 0;
+    font-family: var(--font-header);
+    font-weight: 500;
+}
+
+.navMenu {
+    display: flex;
+    flex-direction: column;
+}
+
+.navItem {
+    color: var(--text-gray);
+    text-decoration: none;
+    font-family: var(--font-main);
+    font-size: 1rem;
+    font-weight: 500;
+    padding: 15px 20px;
+    border-radius: var(--radius-s);
+    margin-bottom: 5px;
+    display: flex;
+    align-items: center;
+    transition: background-color 0.2s ease, color 0.2s ease;
+    border-left: 4px solid transparent;
+}
+
+.navItem i {
+    margin-right: 15px;
+    width: 20px;
+    text-align: center;
+    font-size: 0.9rem;
+}
+
+.navItem:hover {
+    background-color: rgba(255, 40, 130, 0.1); /* Pink tint */
+    color: var(--text-white);
+}
+
+.navItem.active {
+    color: var(--text-white);
+    background-color: rgba(255, 40, 130, 0.1); /* Pink tint */
+    border-left: 4px solid var(--accent-red); /* Pink accent line */
+}
+
+/* --- Friends Dropdown Styles --- */
+
+.onlineIndicator {
+    width: 8px;
+    height: 8px;
+    background-color: var(--accent-green);
+    border-radius: 50%;
+    margin-left: 10px;
+    box-shadow: 0 0 8px var(--accent-green);
+}
+
+.friendCount {
+    margin-left: auto;
+    background-color: var(--accent-red);
+    color: white;
+    font-size: 0.8rem;
+    font-weight: bold;
+    padding: 2px 6px;
+    border-radius: 10px;
+}
+
+.friendsDropdown {
+    display: flex;
+    flex-direction: column;
+    background-color: var(--bg-dark);
+    margin: 0 10px 10px;
+    border-radius: var(--radius-s);
+    padding: 5px;
+    animation: fadeIn 0.2s ease-in-out;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.dropdownItem {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 15px;
+    color: var(--text-gray);
+    border-radius: var(--radius-s);
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.dropdownItem:hover {
+    background-color: var(--bg-card);
+}
+
+.dropdownItem i {
+    margin-right: 10px;
+}
+
+.friendName {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.noFriends {
+    font-style: italic;
+    color: #888;
+    justify-content: center;
+}
+
+.messageButton {
+    background: none;
+    border: none;
+    color: var(--accent-blue);
+    cursor: pointer;
+    font-size: 1rem;
+    padding: 5px;
+    margin-left: 10px;
+}
+
+.messageButton:hover {
+    color: var(--text-white);
+}
+
+@media (max-width: 900px) {
+    .sidebar {
+        position: fixed;
+        left: 0;
+        top: 0;
+        height: 100%;
+        z-index: 1000; /* Make sure it's on top */
+        transform: translateX(-100%);
+        transition: transform 0.3s ease-in-out;
+    }
+
+    .sidebar.open {
+        transform: translateX(0);
+        box-shadow: 0 0 40px rgba(0,0,0,0.5);
+    }
+}

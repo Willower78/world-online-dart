@@ -2,12 +2,24 @@ const express = require('express');
 const router = express.Router();
 const auth = require('../middleware/authMiddleware');
 const User = require('../models/User');
-const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+
+const stripeKey = process.env.STRIPE_SECRET_KEY;
+const stripe = stripeKey ? require('stripe')(stripeKey) : null;
+if (!stripe) {
+    console.warn('[paymentRoutes] STRIPE_SECRET_KEY is not set; payment endpoints will return 503.');
+}
+
+const requireStripe = (req, res, next) => {
+    if (!stripe) {
+        return res.status(503).json({ msg: 'Payments are not configured on this server.' });
+    }
+    next();
+};
 
 // @route   POST /api/payments/create-checkout-session
 // @desc    Create a stripe checkout session for premium subscription
 // @access  Private
-router.post('/create-checkout-session', auth, async (req, res) => {
+router.post('/create-checkout-session', auth, requireStripe, async (req, res) => {
     try {
         const user = await User.findById(req.user.id);
         const priceId = process.env.STRIPE_PREMIUM_PRICE_ID;
@@ -63,6 +75,7 @@ router.post('/create-checkout-session', auth, async (req, res) => {
 
     } catch (err) {
         console.error('Stripe error:', err.message);
+        console.error('Stripe error details:', err);
         res.status(500).send('Server Error');
     }
 });
@@ -71,6 +84,10 @@ router.post('/create-checkout-session', auth, async (req, res) => {
 // @desc    Listen for events from Stripe
 // @access  Public (Stripe needs to be able to access this)
 router.post('/webhook', express.raw({type: 'application/json'}), async (req, res) => {
+    if (!stripe) {
+        return res.status(503).send('Payments are not configured on this server.');
+    }
+
     const sig = req.headers['stripe-signature'];
     const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
