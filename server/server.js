@@ -227,7 +227,7 @@ io.on('connection', (socket) => {
     activeGames[gameId] = { // NY: Spara userId som id i players-arrayen
       gameId: gameId,
       gameType: data.gameType, // t.ex. '501' eller 'cricket'
-      players: [{ id: socket.id, username: data.username }], // Spelaren som skapade spelet
+      players: [{ id: socket.userId, username: data.username, socketId: socket.id, userId: socket.userId }], // Spelaren som skapade spelet
       gameState: null // Speldata kommer initieras när spelet startar
     };
 
@@ -519,6 +519,13 @@ io.on('connection', (socket) => {
         const nextPlayer = game.players.find(p => p.id !== currentPlayerId); // NY: Använd p.id (som nu är userId)
         currentPlayerState.currentPlayerId = nextPlayer.id;
         currentPlayerState.lastMessage = `It's now ${nextPlayer.username}'s turn.`;
+
+        // --- NYTT: Trigga botens tur i Cricket ---
+        if (nextPlayer.isBot) {
+            setTimeout(() => {
+                executeBotTurn(gameId, io);
+            }, 1500);
+        }
     }
 
     io.to(gameId).emit('game_state_update', currentPlayerState);
@@ -596,7 +603,7 @@ io.on('connection', (socket) => {
         if (game && game.gameState && game.gameState.currentPlayerId === BOT_USER_ID) {
             console.log(`[Tournament Match] Bot's turn to start. Triggering executeBotTurn for game ${matchId}.`);
             setTimeout(() => {
-                executeBotTurn(gameId, io);
+                executeBotTurn(matchId, io);
             }, 1500);
         }
 
@@ -650,7 +657,7 @@ io.on('connection', (socket) => {
     if (gameEntry) {
       const [gameId, game] = gameEntry;
       // Hitta användarnamnet för den spelare som kopplade från för bättre loggning
-      const disconnectedPlayer = game.players.find(p => p.id === socket.id);
+      const disconnectedPlayer = game.players.find(p => p.id === socket.userId);
       const username = disconnectedPlayer ? disconnectedPlayer.username : 'En spelare';
 
       console.log(`Spelare ${username} (${socket.id}) lämnade spel ${gameId}. Städar upp.`);
