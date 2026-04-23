@@ -9,6 +9,7 @@ import { AuthProvider } from './context/AuthContext';
 
 // Components
 import SubscriberRoute from './components/SubscriberRoute';
+import PrivateRoute from './components/PrivateRoute';
 import GameWrapper from './components/GameWrapper';
 import MainLayout from './components/MainLayout';
 
@@ -77,8 +78,12 @@ function App() {
              </Route>
           </Route>
 
-          {/* Game Routes (Typically no MainLayout to maximize screen space) */}
-          <Route element={<SubscriberRoute />}>
+          {/* Game Routes (Typically no MainLayout to maximize screen space).
+              Auth-only, NOT subscriber-gated — free-tier practice games
+              (Bob's 27) and bot games need to be reachable. Subscription
+              checks on paid modes (501 / Cricket / 301 DIDO matchmaking)
+              happen at the Lobby button level before the game is created. */}
+          <Route element={<PrivateRoute />}>
              <Route path="/game/:gameId" element={<GameWrapper />} />
           </Route>
 
