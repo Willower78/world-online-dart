@@ -1,0 +1,63 @@
+.topHeader {
+    background-color: var(--accent-red);
+    box-shadow: 0 4px 10px rgba(217, 4, 41, 0.3);
+    color: var(--text-white);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px 30px;
+    font-family: var(--font-header);
+    flex-shrink: 0;
+}
+
+.headerTitle {
+    font-size: 1.5rem;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+}
+
+.headerActions {
+    display: flex;
+    gap: 15px;
+}
+
+.iconBtn {
+    background: none;
+    border: none;
+    color: var(--text-white);
+    font-size: 1.2rem;
+    cursor: pointer;
+    transition: opacity 0.2s;
+}
+
+.iconBtn:hover {
+    opacity: 0.8;
+}
+
+.menuButton {
+    display: none; /* Hidden by default */
+    background: none;
+    border: none;
+    color: var(--text-white);
+    font-size: 1.5rem;
+    cursor: pointer;
+}
+
+@media (max-width: 900px) {
+    .topHeader {
+        padding: 15px 20px;
+    }
+    .menuButton {
+        display: block; /* Visible on mobile */
+    }
+    .headerTitle {
+        /* Optionally hide the title on mobile to save space, or center it */
+        flex-grow: 1;
+        text-align: center;
+    }
+    .headerActions {
+        /* Hide other actions or make them smaller if needed */
+        display: none; 
+    }
+}

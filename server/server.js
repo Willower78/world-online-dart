@@ -1,70 +1,79 @@
-// Importera nödvändiga paket
-const express = require('express');
-const http = require('http'); // NY: Importera Node.js http-modul
 const dotenv = require('dotenv');
-const path = require('path'); // Korrekt placering av path-modulen
+const path = require('path');
 
-// Ladda miljövariabler omedelbart, och ange korrekt sökväg
 dotenv.config({ path: path.resolve(__dirname, '.env') });
 
-const { Server } = require("socket.io"); // NY: Importera Server-klassen från socket.io
+// Importera nödvändiga paket
+const express = require('express');
+const cors = require('cors');
+const http = require('http');
+const mongoose = require('mongoose');
+const visionService = require('./services/visionService');
+
+const { Server } = require("socket.io");
 const connectDB = require('./config/db');
 const fs = require('fs');
+const gameStateManager = require('./services/gameStateManager');
+const redisClient = require('./config/redis');
+const StatsService = require('./services/statsService');
+const { reportTournamentMatchWinner } = require('./services/tournamentService');
 
-// --- NYTT: Ladda alla modeller direkt vid start ---
-require('./models/User');
-require('./models/Match');
-require('./models/Post');
-require('./models/Conversation');
-require('./models/Tournament');
-const mongoose = require('mongoose');
-
-// Skapa Express-appen
+// Initialisera Express och Socket.IO
 const app = express();
+app.use(cors({ origin: '*' }));
 
-// --- NY SOCKET.IO-KONFIGURATION ---
-// Skapa en http-server med vår Express-app
-const server = http.createServer(app); 
-
-// Skapa en Socket.IO-server som använder vår http-server
+const server = http.createServer(app);
 const io = new Server(server, {
-  // CORS-inställningar för att tillåta anslutningar från vår React-app (som körs på port 3000)
   cors: {
-    // Tillåt anslutningar från både port 3000 och 3001 för flexibilitet under utveckling
-    origin: ["http://localhost:3000", "http://localhost:3001"],
+    origin: "*",
     methods: ["GET", "POST"]
   }
 });
 
-// Middleware för att hantera JSON
+// Ladda alla modeller direkt vid start
+require('./models/User');
+// ... (rest of file)
+
+// Middleware
 app.use(express.json());
-
-// NY: Middleware för att servera statiska filer (uppladdade bilder/videos)
-// Alla anrop till /uploads/... kommer nu att leta efter filer i 'uploads'-mappen.
 app.use('/uploads', express.static('uploads'));
+app.use(express.static(path.join(__dirname, 'public')));
 
-// --- SPEL-LOGIK & MINNE ---
-// En enkel "databas" i minnet för att hålla koll på aktiva spel.
-// Nyckeln är gameId, och värdet är ett objekt med spelinformation.
-const activeGames = {};
-const onlineUsers = {}; // NY: Mappa userId till socket.id
-const matchmakingQueue = {
-    '501': [],
-    'cricket': []
-};
-const pendingInvites = {}; // För direkta utmaningar
+// Spel-logik & minne
+const onlineUsers = {};
+const pendingInvites = {};
 
-// --- NYTT: Bot-spelare Konstanter ---
 const BOT_USER_ID = 'BOT_PLAYER_ID';
 const BOT_USERNAME = 'Robo-Darter';
 
-// Gör io och onlineUsers tillgängliga för våra route-filer
 app.set('socketio', io);
 app.set('onlineUsers', onlineUsers);
 
-// --- HJÄLPFUNKTION FÖR ATT SPARA MATCHER ---
+// Lobby-funktioner
+const getLobbyGames = async () => {
+    const allGames = await gameStateManager.getAllGames();
+    return Object.values(allGames)
+        .filter(game => game.gameState && !game.gameState.winner) // Filtrera bara pågående spel
+        .map(game => ({
+            id: game.gameId,
+            title: `${game.gameType} Match`, // Enkel titel
+            score: game.gameState.scores ? `${Object.values(game.gameState.scores)[0]} - ${Object.values(game.gameState.scores)[1]}` : '0 - 0',
+            p1: { name: game.players[0]?.username || 'Player 1', flag: 'https://placehold.co/30x30/f03e3e/fff.png?text=P1' }, // Placeholder flag
+            p2: { name: game.players[1]?.username || 'Player 2', flag: 'https://placehold.co/30x30/3a86ff/fff.png?text=P2' }  // Placeholder flag
+        }));
+};
+
+const emitLobbyUpdate = async (io) => {
+    try {
+        const lobbyGames = await getLobbyGames();
+        io.emit('lobby_state_update', lobbyGames);
+    } catch (err) {
+        console.error('[Lobby Update] Failed to emit lobby update:', err);
+    }
+};
+
+// Hjälpfunktion för att spara matcher
 const saveMatchResult = async (game) => {
-    // NYTT: Spara inte matcher som involverar en bot
     if (game.players.some(p => p.isBot)) {
         console.log(`[Match Not Saved] Game ${game.gameId} involved a bot.`);
         return;
@@ -76,31 +85,81 @@ const saveMatchResult = async (game) => {
     const winnerId = game.gameState.winner;
     const loser = game.players.find(p => p.id !== winnerId);
 
-    if (!loser) return; // Kan inte spara om vi inte hittar en förlorare
+    if (!loser) return;
 
+    // Save the generic match history
     const match = new Match({
         gameType: game.gameType,
         players: [winnerId, loser.id],
         winner: winnerId,
         loser: loser.id,
         finalScores: game.gameState.scores,
-        throwHistory: game.gameState.throwHistory // NYTT
+        throwHistory: game.gameState.throwHistory
     });
-
     await match.save();
-    console.log(`[Match Saved] Game ${game.gameId} result has been saved.`);
+    console.log(`[Match Saved] Game ${game.gameId} result has been saved to general history.`);
+
+    // --- NEW: Update User Stats ---
+    StatsService.updateUserStatsAfterMatch(match);
+
+    // --- Update League Standings if it's a league match ---
+    if (game.leagueContext) {
+        try {
+            const League = mongoose.model('League');
+            const { leagueId, matchId } = game.leagueContext;
+            const league = await League.findById(leagueId);
+            if (!league) throw new Error(`League not found with ID: ${leagueId}`);
+
+            let matchInLeague;
+            let divisionWithMatch;
+
+            for (const division of league.divisions) {
+                matchInLeague = division.schedule.id(matchId);
+                if (matchInLeague) {
+                    divisionWithMatch = division;
+                    break;
+                }
+            }
+
+            if (!matchInLeague || !divisionWithMatch) throw new Error(`Match not found in league with ID: ${matchId}`);
+            
+            // Update match details
+            matchInLeague.status = 'Completed';
+            matchInLeague.winner = winnerId;
+            matchInLeague.finalScores = game.gameState.scores;
+
+            // Update standings
+            const winnerStanding = divisionWithMatch.standings.find(s => s.player.toString() === winnerId);
+            const loserStanding = divisionWithMatch.standings.find(s => s.player.toString() === loser.id);
+
+            if (winnerStanding) {
+                winnerStanding.wins += 1;
+                winnerStanding.points += 3; // 3 points for a win
+            }
+            if (loserStanding) {
+                loserStanding.losses += 1;
+            }
+
+            await league.save();
+            console.log(`[League Update] Standings updated for league ${league.name} after match ${matchId}.`);
+
+        } catch (err) {
+            console.error(`[League Error] Failed to update league standings: ${err.message}`);
+            // We don't want to crash the server, so we just log the error.
+        }
+    }
 };
 
-// --- NYTT: Bot-logik ---
-const executeBotTurn = (gameId, io) => {
-    const game = activeGames[gameId];
+// Bot-logik
+const executeBotTurn = async (gameId, io) => {
+    const game = await gameStateManager.getGame(gameId);
     if (!game || !game.gameState || game.gameState.winner) return;
 
     const botPlayerId = game.players.find(p => p.isBot).id;
     const humanPlayer = game.players.find(p => !p.isBot);
 
     if (game.gameType === '501') {
-        const points = Math.floor(Math.random() * 81) + 20; // Random score 20-100
+        const points = Math.floor(Math.random() * 81) + 20;
         const currentScore = game.gameState.scores[botPlayerId];
         const newScore = currentScore - points;
 
@@ -119,7 +178,6 @@ const executeBotTurn = (gameId, io) => {
         const target = CRICKET_TARGETS[Math.floor(Math.random() * CRICKET_TARGETS.length)];
         const multiplier = Math.floor(Math.random() * 3) + 1;
 
-        // Simplified logic from submit_cricket_throw
         const opponentId = humanPlayer.id;
         const botState = game.gameState;
 
@@ -145,63 +203,27 @@ const executeBotTurn = (gameId, io) => {
         }
     }
 
-    // Byt tillbaka turen till den mänskliga spelaren (om ingen har vunnit)
     if (!game.gameState.winner && humanPlayer) {
         game.gameState.currentPlayerId = humanPlayer.id;
         game.gameState.lastMessage += ` Now it's ${humanPlayer.username}'s turn.`;
     }
 
+    await gameStateManager.setGame(gameId, game);
     io.to(gameId).emit('game_state_update', game.gameState);
 };
 
-
-// --- HJÄLPFUNKTION FÖR ATT STARTA SPEL ---
-function initializeAndStartGame(gameId, io, activeGames) {
-  const game = activeGames[gameId];
-  if (!game || game.players.length < 2) return;
-
-  if (game.gameType === '501') {
-      game.gameState = {
-          scores: { [game.players[0].id]: 501, [game.players[1].id]: 501 },
-          currentPlayerId: game.players[0].id,
-          winner: null,
-          lastMessage: `Game starts! It's ${game.players[0].username}'s turn.`
-      };
-  } else if (game.gameType === 'cricket') {
-      const initialHits = { 20: 0, 19: 0, 18: 0, 17: 0, 16: 0, 15: 0, 25: 0 };
-      game.gameState = {
-          scores: { [game.players[0].id]: 0, [game.players[1].id]: 0 },
-          hits: {
-              [game.players[0].id]: { ...initialHits },
-              [game.players[1].id]: { ...initialHits },
-          },
-          closed: { ...initialHits },
-          currentPlayerId: game.players[0].id,
-          winner: null,
-          lastMessage: `Cricket game starts! It's ${game.players[0].username}'s turn.`
-      };
-  }
-
-  const gameDataForClient = { ...game, players: game.players.map(p => ({ id: p.id, username: p.username })) };
-  io.to(gameId).emit('game_start', gameDataForClient);
-};
-
-// --- SOCKET.IO-LOGIK ---
-// Denna kod körs varje gång en ny användare ansluter till vår server
+// Socket.IO-logik
 io.on('connection', (socket) => {
   console.log(`En användare anslöt med ID: ${socket.id}`);
-  const User = mongoose.model('User'); // Använd Mongoose för att undvika cirkulära beroenden
+  const User = mongoose.model('User');
 
-
-  // När en användare har loggat in och meddelar att de är online (NY: userId sparas på socketen)
   socket.on('user_online', async ({ userId, username }) => {
     if (userId) {
-      socket.userId = userId; // Attach userId directly to the socket instance
-      socket.username = username; // Attach username as well
+      socket.userId = userId;
+      socket.username = username;
       onlineUsers[userId] = socket.id;
       console.log(`User ${username} (${userId}) is online with socket ${socket.id}`);
 
-      // --- NYTT: Meddela vänner att användaren är online ---
       try {
         const user = await User.findById(userId).select('friends');
         if (user && user.friends) {
@@ -216,151 +238,163 @@ io.on('connection', (socket) => {
     }
   });
 
-  // --- LOBBY-LOGIK ---
+  // AI Backend Socket Events
+socket.on('video-frame', visionService.handleFrame(io, socket));
 
-  // När en spelare vill skapa ett nytt spel
-  socket.on('create_game', (data) => {
-    const gameId = Math.random().toString(36).substring(2, 8).toUpperCase(); // Skapa ett slumpmässigt, kort ID
-    console.log(`Spelare ${socket.id} skapade ett spel (${data.gameType}) med ID: ${gameId}`);
+  socket.on('camera-calibration', async (calibrationData) => {
+    try {
+      const Calibration = mongoose.model('Calibration');
+      
+      const calibration = new Calibration({
+        userId: socket.userId,
+        cornerPoints: calibrationData,
+        isCalibrated: true,
+        calibratedAt: new Date()
+      });
 
-    // Skapa ett nytt spelobjekt
-    activeGames[gameId] = { // NY: Spara userId som id i players-arrayen
-      gameId: gameId,
-      gameType: data.gameType, // t.ex. '501' eller 'cricket'
-      players: [{ id: socket.id, username: data.username }], // Spelaren som skapade spelet
-      gameState: null // Speldata kommer initieras när spelet startar
-    };
-
-    // Anslut spelaren till ett "rum" för detta spel
-    socket.join(gameId);
-
-    // Skicka tillbaka spel-ID till skaparen så de kan visa/dela det
-    socket.emit('game_created', { gameId: gameId });
-  });
-
-  // När en spelare vill gå med i ett befintligt spel
-  socket.on('join_game', (data) => {
-    const game = activeGames[data.gameId];
-
-    // Felhantering
-    if (!game) return socket.emit('error_message', 'Game not found.');
-    if (game.players.length >= 2) return socket.emit('error_message', 'Game is full.');
-
-    console.log(`Spelare ${socket.id} (${data.username}) gick med i spel: ${data.gameId}`);
-
-    // Anslut spelaren till rummet och lägg till i spelobjektet
-    socket.join(data.gameId); // NY: Spara userId som id i players-arrayen
-    game.players.push({ id: socket.userId, username: data.username, socketId: socket.id, userId: socket.userId });
-
-    // --- Initiera spelets state baserat på gameType ---
-    if (game.gameType === '501') {
-      game.gameState = {
-        scores: {
-          [game.players[0].id]: 501,
-          [game.players[1].id]: 501,
-        },
-        currentPlayerId: game.players[0].id, // Spelare 1 börjar (id är nu userId)
-        winner: null,
-        lastMessage: `Game starts! It's ${game.players[0].username}'s turn.`
-      };
-    } else if (game.gameType === 'cricket') {
-      const initialHits = { 20: 0, 19: 0, 18: 0, 17: 0, 16: 0, 15: 0, 25: 0 };
-      game.gameState = {
-        scores: {
-          [game.players[0].id]: 0,
-          [game.players[1].id]: 0,
-        },
-        hits: {
-          [game.players[0].id]: { ...initialHits },
-          [game.players[1].id]: { ...initialHits },
-        },
-        closed: { ...initialHits },
-        currentPlayerId: game.players[0].id, // Spelare 1 börjar (id är nu userId)
-        winner: null,
-        lastMessage: `Cricket game starts! It's ${game.players[0].username}'s turn.`
-      };
+      await calibration.save();
+      
+      socket.emit('calibration-saved', {
+        success: true,
+        calibration: calibration
+      });
+    } catch (error) {
+      console.error('Error saving calibration:', error);
+      socket.emit('calibration-error', { message: 'Failed to save calibration' });
     }
-    // TODO: Lägg till initial state för andra speltyper som 'cricket'
-
-    // Meddela båda spelarna att spelet startar
-    // Använd en liten fördröjning så att klienten hinner navigera till spelsidan
-    setTimeout(() => {
-      io.to(data.gameId).emit('game_start', game);
-    }, 500);
   });
 
-  // --- MATCHMAKING-LOGIK ---
-  socket.on('find_match', (data) => {
+  socket.on('dart-detection-result', (data) => {
+    if (data.socketId) {
+      io.to(data.socketId).emit('dart-detected', {
+        score: data.score,
+        point: data.point,
+        confidence: data.confidence,
+        timestamp: new Date()
+      });
+    }
+  });
+
+  socket.on('request_lobby_state', async () => {
+    try {
+        const lobbyGames = await getLobbyGames();
+        socket.emit('lobby_state_update', lobbyGames);
+    } catch (err) {
+        console.error('[Lobby Update] Failed to send initial lobby state:', err);
+    }
+  });
+
+  socket.on('join_game', async ({ gameId, userId }) => {
+    try {
+        const game = await gameStateManager.getGame(gameId);
+        if (game) {
+            socket.join(gameId);
+            const gameDataForClient = { 
+                ...game, 
+                players: game.players.map(p => ({ id: p.id, username: p.username })) 
+            };
+            socket.emit('game_state_update', gameDataForClient);
+            console.log(`User ${socket.username || userId} joined game ${gameId}`);
+        } else {
+            socket.emit('game_error', { message: 'Game not found.' });
+        }
+    } catch (err) {
+        console.error('Error joining game detailed:', err);
+        socket.emit('game_error', { message: `Server error while joining game: ${err.message}` });
+    }
+  });
+
+  const getQueueKey = (gameType) => `matchmaking_queue:${gameType}`;
+
+  socket.on('find_match', async (data) => {
     const { gameType, userId, username } = data;
-    
-    // Ta bort spelaren från eventuella andra köer för att undvika dubbletter
-    Object.keys(matchmakingQueue).forEach(type => {
-        matchmakingQueue[type] = matchmakingQueue[type].filter(p => p.userId !== userId);
-    });
+    const queueKey = getQueueKey(gameType);
+    const userData = JSON.stringify({ socketId: socket.id, userId, username });
 
-    const queue = matchmakingQueue[gameType];
+    // Remove user from any other queue first
+    await redisClient.lRem(getQueueKey('501'), 0, userData);
+    await redisClient.lRem(getQueueKey('cricket'), 0, userData);
 
-    if (queue.length > 0) {
-        // En motståndare hittades!
-        const opponent = queue.shift(); // Ta ut den första spelaren ur kön
+    const opponentData = await redisClient.lPop(queueKey);
 
-        const gameId = Math.random().toString(36).substring(2, 8).toUpperCase(); // NY: Använd userId som id i players-arrayen
+    if (opponentData) {
+        const opponent = JSON.parse(opponentData);
+        
+        if (opponent.userId === userId) {
+            await redisClient.rPush(queueKey, opponentData);
+            await redisClient.rPush(queueKey, userData);
+            return socket.emit('waiting_for_match');
+        }
+
+        const gameId = Math.random().toString(36).substring(2, 8).toUpperCase();
         const player1 = { id: opponent.userId, username: opponent.username, socketId: opponent.socketId, userId: opponent.userId };
         const player2 = { id: userId, username: username, socketId: socket.id, userId: userId };
 
-        activeGames[gameId] = {
-            gameId: gameId,
-            gameType: gameType,
-            players: [player1, player2],
-            gameState: null
-        };
+        await gameStateManager.setGame(gameId, {
+            gameId, gameType, players: [player1, player2], gameState: null
+        });
 
-        // Anslut båda spelarna till rummet
         const opponentSocket = io.sockets.sockets.get(opponent.socketId);
         if (opponentSocket) opponentSocket.join(gameId);
         socket.join(gameId);
 
-        // Initiera och starta spelet (återanvänd logik från join_game)
-        initializeAndStartGame(gameId, io, activeGames);
+        await gameStateManager.initializeAndStartGame(gameId, io);
+        await emitLobbyUpdate(io);
 
     } else {
-        // Ingen motståndare, lägg spelaren i kön
-        queue.push({ socketId: socket.id, userId, username });
+        await redisClient.rPush(queueKey, userData);
         socket.emit('waiting_for_match');
     }
   });
 
-  socket.on('create_bot_game', (data) => {
+  socket.on('create_bot_game', async (data) => {
     const { gameType, userId, username } = data;
 
     const gameId = Math.random().toString(36).substring(2, 8).toUpperCase();
     const player1 = { id: userId, username: username, socketId: socket.id, userId: userId };
     const player2 = { id: BOT_USER_ID, username: BOT_USERNAME, isBot: true, userId: BOT_USER_ID };
 
-    activeGames[gameId] = {
+    await gameStateManager.setGame(gameId, {
         gameId: gameId,
         gameType: gameType,
         players: [player1, player2],
         gameState: null
-    };
+    });
 
     socket.join(gameId);
-
-    // Spelet kan starta direkt eftersom boten alltid är "redo"
-    initializeAndStartGame(gameId, io, activeGames);
+    await gameStateManager.initializeAndStartGame(gameId, io);
+    await emitLobbyUpdate(io);
   });
 
-  socket.on('cancel_find_match', () => {
-    let wasCancelled = false;
-    Object.keys(matchmakingQueue).forEach(type => {
-        const initialLength = matchmakingQueue[type].length;
-        matchmakingQueue[type] = matchmakingQueue[type].filter(p => p.socketId !== socket.id);
-        if (matchmakingQueue[type].length < initialLength) wasCancelled = true;
+  socket.on('create_practice_game', async (data) => {
+    const { gameType, userId, username } = data;
+
+    const gameId = Math.random().toString(36).substring(2, 8).toUpperCase();
+    const player1 = { id: userId, username: username, socketId: socket.id, userId: userId };
+
+    await gameStateManager.setGame(gameId, {
+        gameId: gameId,
+        gameType: gameType,
+        players: [player1],
+        gameState: null
     });
-    if (wasCancelled) socket.emit('matchmaking_cancelled');
+
+    socket.join(gameId);
+    await gameStateManager.initializeAndStartGame(gameId, io);
+    // No lobby update, as it's a private practice game
   });
 
-  // --- DIREKTA UTMANINGAR ---
+  socket.on('cancel_find_match', async () => {
+    const userData = JSON.stringify({ socketId: socket.id, userId: socket.userId, username: socket.username });
+    
+    const removed501 = await redisClient.lRem(getQueueKey('501'), 0, userData);
+    const removedCricket = await redisClient.lRem(getQueueKey('cricket'), 0, userData);
+
+    if (removed501 > 0 || removedCricket > 0) {
+        socket.emit('matchmaking_cancelled');
+    }
+  });
+
   socket.on('invite_to_game', (data) => {
     const { recipientId, gameType } = data;
     const recipientSocketId = onlineUsers[recipientId];
@@ -383,7 +417,7 @@ io.on('connection', (socket) => {
     });
   });
 
-  socket.on('accept_game_invite', ({ inviteId }) => {
+  socket.on('accept_game_invite', async ({ inviteId }) => {
     const invite = pendingInvites[inviteId];
     if (!invite || socket.id !== invite.to.socketId) return;
 
@@ -391,18 +425,19 @@ io.on('connection', (socket) => {
     const player1 = { id: invite.from.userId, username: invite.from.username, socketId: invite.from.socketId, userId: invite.from.userId };
     const player2 = { id: socket.userId, username: socket.username, socketId: socket.id, userId: socket.userId };
 
-    activeGames[gameId] = {
+    await gameStateManager.setGame(gameId, {
         gameId: gameId,
         gameType: invite.gameType,
         players: [player1, player2],
         gameState: null
-    };
+    });
 
     const challengerSocket = io.sockets.sockets.get(invite.from.socketId);
     if (challengerSocket) challengerSocket.join(gameId);
     socket.join(gameId);
 
-    initializeAndStartGame(gameId, io, activeGames);
+    await gameStateManager.initializeAndStartGame(gameId, io);
+    await emitLobbyUpdate(io);
     delete pendingInvites[inviteId];
   });
 
@@ -410,79 +445,229 @@ io.on('connection', (socket) => {
     const invite = pendingInvites[inviteId];
     if (!invite || socket.id !== invite.to.socketId) return;
 
-
     const challengerSocket = io.sockets.sockets.get(invite.from.socketId);
     if (challengerSocket) {
-        challengerSocket.emit('invite_declined', { fromUsername: socket.username });
+        challengerSocket.emit('invite_declined', { from: { id: socket.userId, username: socket.username } });
     }
     delete pendingInvites[inviteId];
   });
 
-  // --- SPELLOGIK: När en spelare skickar in poäng ---
-  socket.on('submit_score', (data) => {
-    const { gameId, points } = data;
-    const game = activeGames[gameId];
+  // --- League Match Scheduling ---
+  socket.on('propose_league_match_time', async ({ leagueId, matchId, proposedDate }) => {
+    try {
+        const League = mongoose.model('League');
+        const league = await League.findById(leagueId);
+        if (!league) return socket.emit('error_message', 'League not found.');
 
-    // --- Validering ---
+        let matchToUpdate;
+        let opponentId;
+
+        for (const division of league.divisions) {
+            matchToUpdate = division.schedule.id(matchId);
+            if (matchToUpdate) {
+                const player1Id = matchToUpdate.player1.toString();
+                const player2Id = matchToUpdate.player2.toString();
+                if (player1Id !== socket.userId && player2Id !== socket.userId) {
+                    return socket.emit('error_message', 'You are not a player in this match.');
+                }
+                opponentId = player1Id === socket.userId ? player2Id : player1Id;
+                break;
+            }
+        }
+        
+        if (!matchToUpdate) return socket.emit('error_message', 'Match not found in league.');
+
+        matchToUpdate.proposedDate = new Date(proposedDate);
+        await league.save();
+
+        const opponentSocketId = onlineUsers[opponentId];
+        if (opponentSocketId) {
+            io.to(opponentSocketId).emit('league_match_update', { matchId, proposedDate });
+        }
+        socket.emit('league_match_update', { matchId, proposedDate }); // Also notify self
+        socket.emit('toast_message', { type: 'success', message: 'Time proposal sent!' });
+
+    } catch (err) {
+        console.error('Error proposing match time:', err);
+        socket.emit('error_message', 'Server error while proposing time.');
+    }
+  });
+
+  socket.on('accept_league_match_time', async ({ leagueId, matchId }) => {
+    try {
+        const League = mongoose.model('League');
+        const league = await League.findById(leagueId);
+        if (!league) return socket.emit('error_message', 'League not found.');
+
+        let matchToUpdate;
+        let playerIds = [];
+
+        for (const division of league.divisions) {
+            matchToUpdate = division.schedule.id(matchId);
+            if (matchToUpdate) {
+                playerIds = [matchToUpdate.player1.toString(), matchToUpdate.player2.toString()];
+                if (!playerIds.includes(socket.userId)) {
+                    return socket.emit('error_message', 'You are not a player in this match.');
+                }
+                break;
+            }
+        }
+
+        if (!matchToUpdate) return socket.emit('error_message', 'Match not found in league.');
+        
+        // Ensure the acceptor is not the proposer
+        // This check would require knowing who proposed it. For now, we'll assume the flow is correct.
+
+        matchToUpdate.status = 'Confirmed';
+        matchToUpdate.matchDate = matchToUpdate.proposedDate;
+        await league.save();
+        
+        // Notify both players
+        playerIds.forEach(playerId => {
+            const playerSocketId = onlineUsers[playerId];
+            if (playerSocketId) {
+                io.to(playerSocketId).emit('league_match_update', { matchId, status: 'Confirmed', matchDate: matchToUpdate.matchDate });
+                io.to(playerSocketId).emit('toast_message', { type: 'success', message: `Match confirmed for ${new Date(matchToUpdate.matchDate).toLocaleString()}` });
+            }
+        });
+
+    } catch (err) {
+        console.error('Error accepting match time:', err);
+        socket.emit('error_message', 'Server error while confirming time.');
+    }
+  });
+
+  socket.on('start_league_match', async ({ leagueId, matchId }) => {
+    try {
+        const League = mongoose.model('League');
+        const User = mongoose.model('User');
+
+        const league = await League.findById(leagueId).populate('divisions.schedule.player1 divisions.schedule.player2');
+        if (!league) return socket.emit('error_message', 'League not found.');
+
+        let match;
+        for (const division of league.divisions) {
+            match = division.schedule.id(matchId);
+            if (match) break;
+        }
+
+        if (!match) return socket.emit('error_message', 'Match not found.');
+        if (match.status !== 'Confirmed') return socket.emit('error_message', 'Match is not confirmed or has been played.');
+
+        // Simple check to prevent starting too early. More robust logic could be added.
+        // if (new Date() < new Date(match.matchDate)) {
+        //     return socket.emit('error_message', 'It is not time to start the match yet.');
+        // }
+
+        const player1Id = match.player1._id.toString();
+        const player2Id = match.player2._id.toString();
+
+        if (socket.userId !== player1Id && socket.userId !== player2Id) {
+            return socket.emit('error_message', 'You are not a player in this match.');
+        }
+
+        const player1 = { id: player1Id, username: match.player1.username, socketId: onlineUsers[player1Id], userId: player1Id };
+        const player2 = { id: player2Id, username: match.player2.username, socketId: onlineUsers[player2Id], userId: player2Id };
+
+        if (!onlineUsers[player1Id] || !onlineUsers[player2Id]) {
+            return socket.emit('error_message', 'One or more players are not online.');
+        }
+
+        await gameStateManager.setGame(matchId, {
+            gameId: matchId,
+            gameType: '501', // Or get this from league settings
+            players: [player1, player2],
+            gameState: null,
+            leagueContext: { leagueId, matchId } // For saving results later
+        });
+
+        const player1Socket = io.sockets.sockets.get(player1.socketId);
+        const player2Socket = io.sockets.sockets.get(player2.socketId);
+
+        if (player1Socket) player1Socket.join(matchId);
+        if (player2Socket) player2Socket.join(matchId);
+        
+        await gameStateManager.initializeAndStartGame(matchId, io);
+
+    } catch (err) {
+        console.error('Error starting league match:', err);
+        socket.emit('error_message', `Could not start match. Server error: ${err.message}`);
+    }
+  });
+
+  socket.on('submit_score', async (data) => {
+    const { gameId, points } = data;
+    const game = await gameStateManager.getGame(gameId);
+
     if (!game || !game.gameState) return;
-    if (socket.userId !== game.gameState.currentPlayerId) { // NY: Jämför med userId
-      return socket.emit('error_message', "It's not your turn."); // Inte denna spelares tur
+    if (socket.userId !== game.gameState.currentPlayerId) {
+      return socket.emit('error_message', "It's not your turn.");
     }
 
     const currentPlayerId = game.gameState.currentPlayerId;
     const currentScore = game.gameState.scores[currentPlayerId];
     const newScore = currentScore - points;
 
-    // --- Spellogik (501) på servern ---
-    if (newScore < 2 && newScore !== 0) { // Bust (övertrassering)
+    if (newScore < 2 && newScore !== 0) {
       game.gameState.lastMessage = `BUST! Score resets to ${currentScore}.`;
-    } else if (newScore === 0) { // Vinst
+    } else if (newScore === 0) {
       game.gameState.scores[currentPlayerId] = 0;
       game.gameState.winner = currentPlayerId;
       const winnerUsername = game.players.find(p => p.id === currentPlayerId).username;
       game.gameState.lastMessage = `WINNER! ${winnerUsername} wins the game!`;
-      saveMatchResult(game); // SPARA MATCHEN
-    } else { // Normalt kast
+      
+      saveMatchResult(game);
+      await emitLobbyUpdate(io);
+
+      if (game.tournamentContext) {
+        console.log(`[Tournament] Reporting winner for match ${game.tournamentContext.matchId}`);
+        reportTournamentMatchWinner({
+          tournamentId: game.tournamentContext.tournamentId,
+          matchId: game.tournamentContext.matchId,
+          winnerId: currentPlayerId,
+          io: io,
+          onlineUsers: onlineUsers
+        }).catch(err => {
+          console.error(`[Tournament Error] Failed to report match winner: ${err.message}`);
+          io.to(gameId).emit('error_message', 'A server error occurred while updating the tournament bracket.');
+        });
+      }
+
+    } else {
       game.gameState.scores[currentPlayerId] = newScore;
       game.gameState.lastMessage = `Good throw! ${newScore} remaining.`;
     }
 
-    // Byt tur (om ingen har vunnit)
     if (!game.gameState.winner) {
-      const currentPlayerIndex = game.players.findIndex(p => p.id === currentPlayerId); // NY: Använd p.id (som nu är userId)
+      const currentPlayerIndex = game.players.findIndex(p => p.id === currentPlayerId);
       const nextPlayer = game.players[1 - currentPlayerIndex];
       game.gameState.currentPlayerId = nextPlayer.id;
       game.gameState.lastMessage += ` Now it's ${nextPlayer.username}'s turn.`;
 
-      // --- NYTT: Trigga botens tur ---
       if (nextPlayer.isBot) {
         setTimeout(() => {
             executeBotTurn(gameId, io);
-        }, 1500); // Vänta 1.5s för att simulera att boten "tänker"
+        }, 1500);
       }
     }
-
-    // Skicka det uppdaterade spelet till ALLA i rummet
+    
+    await gameStateManager.setGame(gameId, game);
     io.to(gameId).emit('game_state_update', game.gameState);
   });
 
-
-
-  // --- SPELLOGIK: När en spelare skickar in ett Cricket-kast ---
-  socket.on('submit_cricket_throw', (data) => {
+  socket.on('submit_cricket_throw', async (data) => {
     const { gameId, target, multiplier } = data;
-    const game = activeGames[gameId];
+    const game = await gameStateManager.getGame(gameId);
 
-    // Validering
     if (!game || !game.gameState) return;
-    if (socket.userId !== game.gameState.currentPlayerId) { // NY: Jämför med userId
+    if (socket.userId !== game.gameState.currentPlayerId) {
       return socket.emit('error_message', "It's not your turn.");
     }
 
     const numTarget = parseInt(target);
     const numMultiplier = parseInt(multiplier);
     const currentPlayerId = game.gameState.currentPlayerId;
-    const opponentId = game.players.find(p => p.id !== currentPlayerId).id; // NY: Använd p.id (som nu är userId)
+    const opponentId = game.players.find(p => p.id !== currentPlayerId).id;
 
     const currentPlayerState = game.gameState;
     const opponentState = {
@@ -490,41 +675,54 @@ io.on('connection', (socket) => {
         score: game.gameState.scores[opponentId]
     };
 
-    // Uppdatera träffar
     const previousHits = currentPlayerState.hits[currentPlayerId][numTarget];
     currentPlayerState.hits[currentPlayerId][numTarget] += numMultiplier;
 
-    // Poänglogik
-    if (previousHits >= 3) { // Om spelaren redan hade stängt numret
-        if (opponentState.hits[numTarget] < 3) { // Och motståndaren inte har det
+    if (previousHits >= 3) {
+        if (opponentState.hits[numTarget] < 3) {
             currentPlayerState.scores[currentPlayerId] += numTarget * numMultiplier;
         }
-    } else if (currentPlayerState.hits[currentPlayerId][numTarget] >= 3) { // Om spelaren stänger numret nu
-        if (opponentState.hits[numTarget] < 3) { // Och motståndaren inte har det
+    } else if (currentPlayerState.hits[currentPlayerId][numTarget] >= 3) {
+        if (opponentState.hits[numTarget] < 3) {
             const pointsToAdd = (currentPlayerState.hits[currentPlayerId][numTarget] - 3) * numTarget;
             currentPlayerState.scores[currentPlayerId] += pointsToAdd;
         }
     }
 
-    // Kontrollera vinnare
     const CRICKET_TARGETS = [20, 19, 18, 17, 16, 15, 25];
     const allClosedByCurrent = CRICKET_TARGETS.every(t => currentPlayerState.hits[currentPlayerId][t] >= 3);
     if (allClosedByCurrent && currentPlayerState.scores[currentPlayerId] >= opponentState.score) {
         currentPlayerState.winner = currentPlayerId;
         const winnerUsername = game.players.find(p => p.id === currentPlayerId).username;
         currentPlayerState.lastMessage = `WINNER! ${winnerUsername} wins the game!`;
-        saveMatchResult(game); // SPARA MATCHEN
+        
+        saveMatchResult(game);
+      await emitLobbyUpdate(io);
+
+        if (game.tournamentContext) {
+          console.log(`[Tournament] Reporting winner for match ${game.tournamentContext.matchId}`);
+          reportTournamentMatchWinner({
+            tournamentId: game.tournamentContext.tournamentId,
+            matchId: game.tournamentContext.matchId,
+            winnerId: currentPlayerId,
+            io: io,
+            onlineUsers: onlineUsers
+          }).catch(err => {
+            console.error(`[Tournament Error] Failed to report match winner: ${err.message}`);
+            io.to(gameId).emit('error_message', 'A server error occurred while updating the tournament bracket.');
+          });
+        }
+
     } else {
-        // Byt tur
-        const nextPlayer = game.players.find(p => p.id !== currentPlayerId); // NY: Använd p.id (som nu är userId)
+        const nextPlayer = game.players.find(p => p.id !== currentPlayerId);
         currentPlayerState.currentPlayerId = nextPlayer.id;
         currentPlayerState.lastMessage = `It's now ${nextPlayer.username}'s turn.`;
     }
 
+    await gameStateManager.setGame(gameId, game);
     io.to(gameId).emit('game_state_update', currentPlayerState);
   });
 
-  // --- NYTT: Turneringsmatch-logik ---
   socket.on('start_tournament_match', async ({ tournamentId, matchId }) => {
     try {
         const Tournament = mongoose.model('Tournament');
@@ -536,7 +734,6 @@ io.on('connection', (socket) => {
         const match = tournament.bracket.rounds.flat().find(m => m.matchId.toString() === matchId);
         if (!match || match.players.length === 0) return socket.emit('error_message', 'Match is not ready or has no players.');
 
-        // --- NY LOGIK FÖR ATT HANTERA BÅDE SPELARE OCH BOTTAR ---
         const getPlayerObject = async (playerId) => {
             if (playerId.toString() === BOT_USER_ID) {
                 return { id: BOT_USER_ID, username: BOT_USERNAME, isBot: true, userId: BOT_USER_ID };
@@ -547,37 +744,32 @@ io.on('connection', (socket) => {
         };
 
         const player1 = await getPlayerObject(match.players[0]);
-        // Hantera matcher med bara en spelare (mot en bot som ska läggas till) eller en bye
         let player2 = null;
         if (match.players.length > 1) {
             player2 = await getPlayerObject(match.players[1]);
         } else if (match.players.length === 1) {
-            // Om bara en spelare finns, är motståndaren en bot
             player2 = { id: BOT_USER_ID, username: BOT_USERNAME, isBot: true, userId: BOT_USER_ID };
-            // Uppdatera turneringens bracket i databasen för att inkludera boten
             match.players.push(BOT_USER_ID);
         }
 
         if (!player1 || !player2) {
-            // Om en spelare är null och det inte är en bot, avbryt.
             const missingPlayerId = !player1 ? match.players[0] : match.players[1];
             if (missingPlayerId !== BOT_USER_ID) {
                return socket.emit('error_message', `Player with ID ${missingPlayerId} could not be found.`);
             }
         }
         
-        // Säkerställ att vi har två spelare innan vi fortsätter
         if (!player1 || !player2) {
             return socket.emit('error_message', 'Could not assemble players for the match.');
         }
 
-        activeGames[matchId] = {
+        await gameStateManager.setGame(matchId, {
             gameId: matchId,
             gameType: tournament.gameType,
             players: [player1, player2],
             gameState: null,
-            tournamentContext: { tournamentId, matchId } // Spara kontexten
-        };
+            tournamentContext: { tournamentId, matchId }
+        });
 
         const player1Socket = player1.isBot ? null : io.sockets.sockets.get(player1.socketId);
         const player2Socket = player2.isBot ? null : io.sockets.sockets.get(player2.socketId);
@@ -585,38 +777,102 @@ io.on('connection', (socket) => {
         if (player1Socket) player1Socket.join(matchId);
         if (player2Socket) player2Socket.join(matchId);
         
-        // Spara ändringarna i turneringen (om en bot lades till)
         await tournament.save();
 
-        initializeAndStartGame(matchId, io, activeGames);
+        await gameStateManager.initializeAndStartGame(matchId, io);
 
-        // --- NYTT: Trigga botens tur om den börjar ---
-        const game = activeGames[matchId];
-        console.log(`[Tournament Match] Checking if bot should start. Current player: ${game?.gameState?.currentPlayerId}`);
+        const game = await gameStateManager.getGame(matchId);
         if (game && game.gameState && game.gameState.currentPlayerId === BOT_USER_ID) {
-            console.log(`[Tournament Match] Bot's turn to start. Triggering executeBotTurn for game ${matchId}.`);
             setTimeout(() => {
-                executeBotTurn(gameId, io);
+                executeBotTurn(matchId, io);
             }, 1500);
         }
 
     } catch (err) {
-        console.error('--- DETAILED ERROR: START TOURNAMENT MATCH ---');
-        console.error('Time:', new Date().toISOString());
-        console.error('Tournament ID:', tournamentId);
-        console.error('Match ID:', matchId);
-        console.error('Error Object:', err);
-        console.error('--- END DETAILED ERROR ---');
+        console.error('Error starting tournament match:', err);
         socket.emit('error_message', `Could not start match. Server error: ${err.message}`);
     }
   });
 
-  // En "listener" för när en användare kopplar från
+  socket.on('spectate_game', async ({ gameId }) => {
+    if (!socket.isSubscriber) {
+      return socket.emit('unauthorized', { message: 'Only subscribers can spectate games.' });
+    }
+
+    const game = await gameStateManager.getGame(gameId);
+    if (game) {
+      socket.join(gameId);
+      socket.emit('initial_spectate_state', game);
+      console.log(`User ${socket.username} (${socket.userId}) started spectating game ${gameId}`);
+    } else {
+      socket.emit('game_not_found');
+    }
+  });
+
+  socket.on('leave_spectate', ({ gameId }) => {
+    socket.leave(gameId);
+    console.log(`User ${socket.id} stopped spectating game ${gameId}`);
+  });
+
+  // WebRTC Signaling
+  socket.on('join-video-room', (gameId) => {
+    socket.join(gameId);
+    socket.to(gameId).emit('video-user-connected', socket.userId);
+    console.log(`[WebRTC] User ${socket.username} (${socket.userId}) joined video room: ${gameId}`);
+  });
+
+  socket.on('webrtc-offer', ({ offer, to }) => {
+    const recipientSocketId = onlineUsers[to];
+    if (recipientSocketId) {
+        io.to(recipientSocketId).emit('webrtc-offer', { offer, from: socket.userId });
+        console.log(`[WebRTC] Relaying offer from ${socket.userId} to ${to}`);
+    } else {
+        console.log(`[WebRTC] Could not relay offer: User ${to} is not online.`);
+    }
+  });
+
+  socket.on('webrtc-answer', ({ answer, to }) => {
+    const recipientSocketId = onlineUsers[to];
+    if (recipientSocketId) {
+        io.to(recipientSocketId).emit('webrtc-answer', { answer, from: socket.userId });
+        console.log(`[WebRTC] Relaying answer from ${socket.userId} to ${to}`);
+    } else {
+        console.log(`[WebRTC] Could not relay answer: User ${to} is not online.`);
+    }
+  });
+
+  socket.on('webrtc-ice-candidate', ({ candidate, to }) => {
+    const recipientSocketId = onlineUsers[to];
+    if (recipientSocketId) {
+        io.to(recipientSocketId).emit('webrtc-ice-candidate', { candidate, from: socket.userId });
+    }
+  });
+
+  socket.on('video-user-left', (gameId) => {
+    socket.to(gameId).emit('video-user-left', socket.userId);
+    console.log(`[WebRTC] User ${socket.username} (${socket.userId}) left video room: ${gameId}`);
+  });
+
   socket.on('disconnect', async () => {
     console.log(`Användare ${socket.id} kopplade från.`);
 
-    // --- NYTT: Meddela vänner att användaren är offline ---
     if (socket.userId) {
+      // Remove user from matchmaking queues on disconnect
+      const userData = JSON.stringify({ socketId: socket.id, userId: socket.userId, username: socket.username });
+      await redisClient.lRem(getQueueKey('501'), 0, userData);
+      await redisClient.lRem(getQueueKey('cricket'), 0, userData);
+
+      // Notify about video user leaving on disconnect
+      const allGames = await gameStateManager.getAllGames();
+      const gameEntry = Object.entries(allGames).find(([, game]) =>
+        game.players.some(player => player.id === socket.userId)
+      );
+      if (gameEntry) {
+          const [gameId] = gameEntry;
+          socket.to(gameId).emit('video-user-left', socket.userId);
+          console.log(`[WebRTC] User ${socket.username} (${socket.userId}) left video room on disconnect: ${gameId}`);
+      }
+      
       try {
         const user = await User.findById(socket.userId).select('friends');
         if (user && user.friends) {
@@ -625,54 +881,42 @@ io.on('connection', (socket) => {
             if (friendSocketId) io.to(friendSocketId).emit('friend_offline', { userId: socket.userId });
           });
         }
-      } catch (err) { console.error('Error notifying friends about online status:', err); }
+      } catch (err) { console.error('Error notifying friends about offline status:', err); }
     }
 
-    // Ta bort användaren från onlineUsers när de kopplar från
-    // Använd det ID vi sparade direkt på socketen för att göra det mer effektivt
     if (socket.userId && onlineUsers[socket.userId]) {
       delete onlineUsers[socket.userId];
       console.log(`User ${socket.userId} is now offline.`);
     }
 
-    // Ta bort spelaren från matchmaking-kön om de kopplar från
-    Object.keys(matchmakingQueue).forEach(type => {
-        matchmakingQueue[type] = matchmakingQueue[type].filter(p => p.socketId !== socket.id);
-    });
-
-
-    // --- LOGIK FÖR DISCONNECT ---
-    // Hitta vilket spel (om något) som den frånkopplade spelaren var med i.
-    const gameEntry = Object.entries(activeGames).find(([gameId, game]) =>
-      game.players.some(player => player.id === socket.userId) // NY: Jämför med userId
+    const allGames = await gameStateManager.getAllGames();
+    const gameEntry = Object.entries(allGames).find(([, game]) =>
+      game.players.some(player => player.id === socket.userId)
     );
 
     if (gameEntry) {
       const [gameId, game] = gameEntry;
-      // Hitta användarnamnet för den spelare som kopplade från för bättre loggning
-      const disconnectedPlayer = game.players.find(p => p.id === socket.id);
+      const disconnectedPlayer = game.players.find(p => p.id === socket.userId);
       const username = disconnectedPlayer ? disconnectedPlayer.username : 'En spelare';
 
       console.log(`Spelare ${username} (${socket.id}) lämnade spel ${gameId}. Städar upp.`);
 
-      // Ta bort spelet från minnet
-      delete activeGames[gameId];
+      await gameStateManager.deleteGame(gameId);
+      await emitLobbyUpdate(io);
 
-      // Meddela den andra spelaren i rummet att motståndaren har lämnat.
-      // Vi använder 'to(gameId)' för att skicka till alla som är kvar i rummet.
       socket.to(gameId).emit('opponent_disconnected', {
         message: 'Your opponent has disconnected. You win by forfeit!'
       });
     }
   });
 
-  // --- CHATT-LOGIK ---
   socket.on('send_private_message', async ({ recipientId, content }) => {
+    const Conversation = mongoose.model('Conversation');
+    const Message = mongoose.model('Message');
     const recipientSocketId = onlineUsers[recipientId];
-    // Använd det ID vi sparade direkt på socketen, mycket mer pålitligt!
+    
     if (socket.userId) {
         try {
-            // Hitta eller skapa konversationen på ett mer robust sätt
             const participants = [socket.userId, recipientId].sort();
             let conversation = await Conversation.findOne({ participants });
 
@@ -701,54 +945,107 @@ io.on('connection', (socket) => {
                 io.to(recipientSocketId).emit('receive_private_message', messageData);
             }
         } catch (err) {
-            console.error('Chat error:', err); // Logga hela felobjektet för mer detaljer
+            console.error('Chat error:', err);
             socket.emit('error_message', 'Could not save or send message.');
         }
     } else {
         socket.emit('error_message', 'Could not send message. Authentication error.');
     }
   });
+
+  socket.on('report_player', async ({ gameId, reportedUserId, reason }) => {
+    if (socket.userId) {
+      try {
+        const Report = mongoose.model('Report');
+        const newReport = new Report({
+          reporter: socket.userId,
+          reported: reportedUserId,
+          gameId: gameId,
+          type: 'Cheating', // This can be expanded later
+          reason: reason,
+        });
+        await newReport.save();
+        console.log(`[REPORT] User ${socket.username} (${socket.userId}) has reported user ${reportedUserId}.`);
+        socket.emit('report_received', { message: 'Your report has been received and will be reviewed.' });
+      } catch (err) {
+        console.error('Failed to save report:', err);
+        socket.emit('error_message', 'Could not file your report at this time.');
+      }
+    }
+  });
+
+  socket.on('request_assistance', async ({ gameId, reason }) => {
+    if (socket.userId) {
+        try {
+            const Report = mongoose.model('Report');
+            const newReport = new Report({
+                reporter: socket.userId,
+                gameId: gameId,
+                type: 'TechnicalAssistance',
+                reason: reason,
+            });
+            await newReport.save();
+            console.log(`[ASSISTANCE] User ${socket.username} (${socket.userId}) requested assistance in game ${gameId}.`);
+            // TODO: Emit an event to a specific admin channel/room
+            socket.emit('report_received', { message: 'Your request for assistance has been sent.' });
+        } catch (err) {
+            console.error('Failed to save assistance request:', err);
+            socket.emit('error_message', 'Could not request assistance at this time.');
+        }
+    }
+  });
 });
 
-
-
-// --- API ROUTES ---
-// Se till att dessa rader finns och inte är bortkommenterade.
-// De kopplar dina API-endpoints till Express-appen.
+// API Routes
 app.get('/', (req, res) => {
-  res.send('World Online Dart API is running...');
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
+
+
 app.use('/api/auth', require('./routes/authRoutes'));
+app.use('/api/economy', require('./routes/economyRoutes'));
+app.use('/api/leagues', require('./routes/leagueRoutes'));
 app.use('/api/users', require('./routes/userRoutes'));
-app.use('/api/friends', require('./routes/friendsRoutes')); // NY: Lägg till friends-routes
+app.use('/api/friends', require('./routes/friendsRoutes'));
 app.use('/api/posts', require('./routes/postRoutes'));
 app.use('/api/chat', require('./routes/chatRoutes'));
 app.use('/api/payments', require('./routes/paymentRoutes'));
 app.use('/api/tournaments', require('./routes/tournamentRoutes'));
+app.use('/api/rewards', require('./routes/rewardRoutes'));
+app.use('/api/stats', require('./routes/statsRoutes'));
+app.use('/api/admin', require('./routes/adminRoutes'));
+app.use('/api/federation', require('./routes/federationRoutes')); // Federation Routes
+app.use('/api/reports', require('./routes/reportRoutes'));
+app.use('/api/camera', require('./routes/cameraRoutes'));
 
-// --- STARTA SERVERN (ROBUST METOD) ---
+// Starta servern
 const startServer = async () => {
   try {
-    // Skapa 'uploads'-mappen om den inte finns.
     const uploadsDir = path.join(__dirname, 'uploads');
     if (!fs.existsSync(uploadsDir)) {
       fs.mkdirSync(uploadsDir);
       console.log("Created 'uploads' directory for media.");
     }
 
-    // Anslut till MongoDB och vänta på att anslutningen lyckas
-    await connectDB();
+    if (process.env.NODE_ENV !== 'test') {
+      await connectDB();
+    }
 
     const PORT = process.env.PORT || 5000;
-    // Starta servern FÖRST när databasen är ansluten
+    
     server.listen(PORT, () => {
       console.log(`Servern körs på http://localhost:${PORT}`);
+      const tournamentScheduler = require('./services/tournamentScheduler');
+      tournamentScheduler.start(io);
     });
   } catch (error) {
-    console.error("FATALT FEL: Kunde inte ansluta till databasen. Servern startar inte.", error.message);
-    process.exit(1); // Avsluta processen med en felkod
+    console.error("FATALT FEL: Kunde inte ansluta till databasen. Servern startar inte.", error);
+    process.exit(1);
   }
 };
 
-// Kör startfunktionen för att starta hela applikationen
-startServer();
+if (require.main === module) {
+  startServer();
+}
+
+module.exports = { app, server, io };

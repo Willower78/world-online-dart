@@ -1,0 +1,26 @@
+<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+  <!-- Base of the board -->
+  <circle cx="50" cy="50" r="48" fill="#000" stroke="#fff" stroke-width="1"/>
+
+  <!-- Scoring sections -->
+  <circle cx="50" cy="50" r="45" fill="none" stroke="#555" stroke-width="5"/> <!-- Triple ring area -->
+  <circle cx="50" cy="50" r="28" fill="none" stroke="#555" stroke-width="5"/> <!-- Double ring area -->
+  
+  <!-- Segments -->
+  <g stroke="#fff" stroke-width="0.5">
+    <path d="M 50 50 L 50 2" />
+    <path d="M 50 50 L 89.3, 22.4" transform="rotate(18 50 50)" />
+    <path d="M 50 50 L 98.5, 50" transform="rotate(36 50 50)" />
+    <path d="M 50 50 L 89.3, 77.6" transform="rotate(54 50 50)" />
+    <path d="M 50 50 L 50 98" transform="rotate(72 50 50)" />
+    <path d="M 50 50 L 10.7, 77.6" transform="rotate(90 50 50)" />
+    <path d="M 50 50 L 1.5, 50" transform="rotate(108 50 50)" />
+    <path d="M 50 50 L 10.7, 22.4" transform="rotate(126 50 50)" />
+    <path d="M 50 50 L 50 2" transform="rotate(144 50 50)" />
+    <path d="M 50 50 L 89.3, 22.4" transform="rotate(162 50 50)" />
+  </g>
+
+  <!-- Bullseye -->
+  <circle cx="50" cy="50" r="7" fill="none" stroke="#00ff85" stroke-width="1"/>
+  <circle cx="50" cy="50" r="3" fill="#ff2882"/>
+</svg>

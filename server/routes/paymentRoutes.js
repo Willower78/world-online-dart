@@ -63,6 +63,7 @@ router.post('/create-checkout-session', auth, async (req, res) => {
 
     } catch (err) {
         console.error('Stripe error:', err.message);
+        console.error('Stripe error details:', err);
         res.status(500).send('Server Error');
     }
 });

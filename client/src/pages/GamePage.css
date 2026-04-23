@@ -1,0 +1,251 @@
+:root {
+  /* Local theme variables based on existing colors */
+  --gp-bg-main: #1a1a1a;
+  --gp-bg-card: #282828;
+  --gp-text-main: #eeeeee;
+  --gp-text-muted: #aaaaaa;
+  --gp-accent-red: #f44336;
+  --gp-accent-green: #4caf50;
+  --gp-accent-yellow: #ffeb3b;
+  --gp-border: #444444;
+  
+  /* Spacing System (8pt grid) */
+  --gp-space-1: 8px;
+  --gp-space-2: 16px;
+  --gp-space-3: 24px;
+  --gp-space-4: 32px;
+  
+  /* Radius & Shadows */
+  --gp-radius: 12px;
+  --gp-shadow-card: 0 10px 20px rgba(0,0,0,0.3), 0 6px 6px rgba(0,0,0,0.23);
+  --gp-shadow-text: 0 2px 4px rgba(0,0,0,0.5);
+}
+
+.game-container {
+    max-width: 1200px;
+    margin: var(--gp-space-4) auto;
+    padding: var(--gp-space-3);
+    background-color: var(--gp-bg-main);
+    color: var(--gp-text-main);
+    border-radius: var(--gp-radius);
+    font-family: 'Roboto', 'Segoe UI', sans-serif;
+    min-height: 80vh;
+}
+
+/* --- Header --- */
+.game-header {
+    text-align: center;
+    margin-bottom: var(--gp-space-4);
+    padding-bottom: var(--gp-space-3);
+    border-bottom: 1px solid var(--gp-border);
+}
+
+.game-header h1 {
+    margin: 0;
+    font-size: 3rem;
+    font-weight: 800; /* Extra bold */
+    color: var(--gp-text-main);
+    letter-spacing: -1px;
+    text-shadow: var(--gp-shadow-text);
+}
+
+.turn-indicator {
+    margin-top: var(--gp-space-2);
+    font-size: 1.25rem;
+    min-height: 24px;
+    font-weight: 500;
+    letter-spacing: 0.5px;
+    transition: all 0.3s ease;
+    opacity: 0.8;
+}
+
+.turn-indicator.my-turn {
+    color: var(--gp-accent-green);
+    font-weight: 700;
+    opacity: 1;
+    transform: scale(1.05);
+}
+
+.winner-announcement {
+    color: var(--gp-accent-yellow);
+    text-transform: uppercase;
+    font-size: 2rem;
+    margin-top: var(--gp-space-2);
+    animation: bounceIn 0.8s cubic-bezier(0.215, 0.610, 0.355, 1.000) both;
+}
+
+/* --- Main Layout --- */
+.game-main {
+    display: flex;
+    justify-content: center;
+    align-items: stretch; /* Cards same height */
+    gap: var(--gp-space-3);
+    flex-wrap: wrap;
+}
+
+/* --- Cards (Player Panels & Video) --- */
+.player-panel, .video-feed-container {
+    background-color: var(--gp-bg-card);
+    border-radius: var(--gp-radius);
+    box-shadow: var(--gp-shadow-card);
+    padding: var(--gp-space-3);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.player-panel {
+    flex: 1;
+    min-width: 250px;
+    max-width: 350px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Hover effect for cards */
+.player-panel:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 14px 28px rgba(0,0,0,0.25), 0 10px 10px rgba(0,0,0,0.22);
+}
+
+.player-panel h2 {
+    margin: 0 0 var(--gp-space-2) 0;
+    font-size: 1.5rem;
+    font-weight: 400;
+    color: var(--gp-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+/* --- Scoreboard Design --- */
+.player-panel .score {
+    font-family: 'ui-monospace', 'SFMono-Regular', 'SF Mono', 'Menlo', 'Consolas', 'Liberation Mono', monospace;
+    font-size: 6rem; /* Large and clear */
+    font-weight: 700;
+    margin: var(--gp-space-2) 0;
+    color: var(--gp-accent-red);
+    line-height: 1;
+    text-shadow: 0 4px 8px rgba(0,0,0,0.6);
+    
+    /* Animation trigger */
+    animation: scorePop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+/* --- Video Feed --- */
+.video-feed-container {
+    flex: 2;
+    min-width: 300px;
+    max-width: 600px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.video-feed-container h3 {
+    margin-top: 0;
+    font-weight: 300;
+    color: var(--gp-text-muted);
+}
+
+.video-feed-container video {
+    width: 100%;
+    border-radius: calc(var(--gp-radius) - 4px); /* Inner radius */
+    background-color: #000;
+    transform: scaleX(-1);
+    box-shadow: inset 0 0 20px rgba(0,0,0,0.8);
+    border: 1px solid #333;
+}
+
+.turn-indicator-light {
+    margin-top: var(--gp-space-2);
+    font-weight: 600;
+    font-size: 1rem;
+    padding: var(--gp-space-1) var(--gp-space-2);
+    border-radius: 20px;
+    background-color: rgba(0,0,0,0.2);
+}
+
+/* --- Buttons (Generic) --- */
+button {
+    cursor: pointer;
+    font-family: inherit;
+}
+
+.btn-modern {
+    background: linear-gradient(145deg, #333, #222);
+    color: white;
+    border: none;
+    padding: 12px 24px;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 1rem;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+    transition: all 0.2s ease;
+    min-width: 48px;
+    min-height: 48px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.btn-modern:hover {
+    background: linear-gradient(145deg, #444, #333);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 10px rgba(0,0,0,0.4);
+}
+
+.btn-modern:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+}
+
+/* --- Animations --- */
+@keyframes scorePop {
+    0% {
+        opacity: 0.5;
+        transform: scale(0.8);
+    }
+    100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+@keyframes bounceIn {
+  from, 20%, 40%, 60%, 80%, to {
+    animation-timing-function: cubic-bezier(0.215, 0.610, 0.355, 1.000);
+  }
+  0% { opacity: 0; transform: scale3d(.3, .3, .3); }
+  20% { transform: scale3d(1.1, 1.1, 1.1); }
+  40% { transform: scale3d(.9, .9, .9); }
+  60% { opacity: 1; transform: scale3d(1.03, 1.03, 1.03); }
+  80% { transform: scale3d(.97, .97, .97); }
+  to { opacity: 1; transform: scale3d(1, 1, 1); }
+}
+
+/* Mobile Responsiveness */
+@media (max-width: 768px) {
+    .game-main {
+        flex-direction: column;
+        align-items: center;
+    }
+    .player-panel {
+        width: 100%;
+        max-width: none;
+        flex-direction: row;
+        justify-content: space-between;
+        padding: var(--gp-space-2);
+    }
+    .player-panel h2 {
+        margin: 0;
+        font-size: 1.2rem;
+    }
+    .player-panel .score {
+        font-size: 3rem;
+        margin: 0;
+    }
+    .video-feed-container {
+        width: 100%;
+        order: -1; /* Video on top on mobile */
+    }
+}

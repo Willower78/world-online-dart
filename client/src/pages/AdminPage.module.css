@@ -1,0 +1,299 @@
+.container {
+    min-height: 100vh;
+    background-color: var(--bg-dark);
+    color: var(--text-white);
+    padding: 30px;
+    font-family: var(--font-main);
+}
+
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 40px;
+}
+
+.title {
+    color: var(--text-white);
+    font-size: 2.5rem;
+    margin: 0;
+    font-family: var(--font-header);
+    letter-spacing: 1px;
+    background: linear-gradient(to right, #fff, #bbb);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.backLink {
+    color: var(--text-gray);
+    text-decoration: none;
+    font-size: 0.95rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.2s ease;
+    padding: 10px 20px;
+    border-radius: var(--radius-m);
+    background-color: var(--bg-card);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.backLink:hover {
+    color: var(--text-white);
+    background-color: var(--bg-sidebar);
+    transform: translateY(-2px);
+}
+
+.tabNav {
+    display: flex;
+    gap: 15px;
+    margin-bottom: 30px;
+    padding: 8px;
+    background-color: var(--bg-card);
+    border-radius: var(--radius-l);
+    overflow-x: auto;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+}
+
+.tabButton {
+    background: none;
+    border: none;
+    color: var(--text-gray);
+    padding: 12px 24px;
+    font-size: 1rem;
+    cursor: pointer;
+    border-radius: var(--radius-m);
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    white-space: nowrap;
+    font-family: var(--font-header);
+}
+
+.tabButton:hover {
+    color: var(--text-white);
+    background-color: rgba(255,255,255,0.08);
+}
+
+.tabButton.active {
+    background-color: var(--accent-blue);
+    color: var(--bg-dark);
+    font-weight: 700;
+    box-shadow: 0 4px 10px rgba(4, 245, 255, 0.3);
+}
+
+.content {
+    background-color: var(--bg-card);
+    padding: 40px;
+    border-radius: var(--radius-l);
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3);
+    min-height: 600px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    animation: fadeIn 0.3s ease-in-out;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* Stats Grid */
+.statsGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 25px;
+    margin-bottom: 50px;
+}
+
+.statCard {
+    background: linear-gradient(135deg, var(--bg-sidebar), #2a002e);
+    padding: 30px;
+    border-radius: var(--radius-l);
+    text-align: center;
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+    border: 1px solid rgba(255,255,255,0.05);
+    position: relative;
+    overflow: hidden;
+}
+
+.statCard::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 4px;
+    background: var(--accent-blue);
+    opacity: 0.5;
+}
+
+.statCard:hover {
+    transform: translateY(-8px);
+    box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+    border-color: var(--accent-blue);
+}
+
+.statCard h3 {
+    margin: 0 0 15px 0;
+    font-size: 0.95rem;
+    text-transform: uppercase;
+    color: var(--text-gray);
+    letter-spacing: 1.5px;
+}
+
+.statCard p {
+    margin: 0;
+    font-size: 3rem;
+    font-weight: 800;
+    color: var(--text-white);
+    font-family: var(--font-header);
+    text-shadow: 0 2px 5px rgba(0,0,0,0.3);
+}
+
+/* Tables */
+.table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    margin-top: 20px;
+    font-size: 0.95rem;
+}
+
+.table th, .table td {
+    padding: 18px;
+    text-align: left;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.table th {
+    background-color: rgba(0, 0, 0, 0.2);
+    color: var(--accent-blue);
+    font-weight: 700;
+    text-transform: uppercase;
+    font-size: 0.8rem;
+    letter-spacing: 1px;
+    position: sticky;
+    top: 0;
+}
+
+.table tr:hover td {
+    background-color: rgba(255, 255, 255, 0.03);
+}
+
+.table tr:last-child td {
+    border-bottom: none;
+}
+
+/* Badges */
+.badge {
+    padding: 4px 10px;
+    border-radius: var(--radius-pill);
+    font-size: 0.8rem;
+    font-weight: bold;
+    text-transform: uppercase;
+    color: white;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+}
+
+/* Buttons inside table */
+.actionButton {
+    background-color: var(--bg-sidebar);
+    color: var(--text-white);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 6px 14px;
+    border-radius: var(--radius-s);
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 0.85rem;
+    transition: all 0.2s;
+    margin-right: 5px;
+}
+
+.actionButton:hover {
+    background-color: var(--accent-blue);
+    color: var(--bg-dark);
+    border-color: var(--accent-blue);
+}
+
+.banButton {
+    color: var(--accent-red);
+    border-color: rgba(255, 40, 130, 0.3);
+}
+
+.banButton:hover {
+    background-color: var(--accent-red);
+    color: white;
+}
+
+.unbanButton {
+    color: var(--accent-green);
+    border-color: rgba(0, 255, 133, 0.3);
+}
+
+.unbanButton:hover {
+    background-color: var(--accent-green);
+    color: var(--bg-dark);
+}
+
+.actionSelect {
+    background: var(--bg-input);
+    border: 1px solid var(--accent-blue);
+    color: white;
+    padding: 5px;
+    border-radius: var(--radius-s);
+}
+
+/* Pagination */
+.pagination {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    margin-top: 20px;
+    gap: 15px;
+    color: var(--text-gray);
+}
+
+.pagination button {
+    background: var(--bg-sidebar);
+    border: 1px solid rgba(255,255,255,0.1);
+    color: var(--text-white);
+    padding: 8px 16px;
+    border-radius: var(--radius-s);
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.pagination button:hover:not(:disabled) {
+    background: var(--accent-blue);
+    color: var(--bg-dark);
+}
+
+.pagination button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Actions Card */
+.actionsCard {
+    background: linear-gradient(135deg, var(--bg-sidebar), #2a002e);
+    padding: 35px;
+    border-radius: var(--radius-l);
+    border-left: 4px solid var(--accent-red);
+    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.actionsCard h3 {
+    margin: 0 0 15px 0;
+    font-size: 1.4rem;
+    color: var(--text-white);
+    font-family: var(--font-header);
+}
+
+.actionsCard p {
+    margin: 10px 0 0 0;
+    font-size: 1rem;
+    color: var(--text-gray);
+}

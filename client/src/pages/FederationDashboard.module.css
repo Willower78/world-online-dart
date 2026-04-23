@@ -1,0 +1,184 @@
+.dashboardContainer {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    padding: 20px;
+    height: 100%;
+    overflow-y: auto;
+}
+
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.title {
+    font-family: var(--font-header);
+    font-size: 2rem;
+    color: var(--text-white);
+    margin: 0;
+}
+
+.subtitle {
+    color: var(--text-gray);
+    font-size: 1rem;
+}
+
+.tabs {
+    display: flex;
+    gap: 10px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    padding-bottom: 10px;
+    margin-bottom: 20px;
+}
+
+.tab {
+    background: transparent;
+    border: none;
+    color: var(--text-gray);
+    padding: 10px 20px;
+    cursor: pointer;
+    font-family: var(--font-header);
+    font-size: 1.1rem;
+    border-radius: var(--radius-m);
+    transition: all 0.2s;
+}
+
+.tab:hover {
+    color: var(--text-white);
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.activeTab {
+    background: var(--accent-red);
+    color: var(--text-white);
+}
+
+.grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 20px;
+}
+
+.card {
+    background: var(--bg-card);
+    border-radius: var(--radius-l);
+    padding: 20px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.cardHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    padding-bottom: 10px;
+}
+
+.cardTitle {
+    font-family: var(--font-header);
+    font-size: 1.2rem;
+    color: var(--text-white);
+    margin: 0;
+}
+
+.statValue {
+    font-size: 2rem;
+    font-weight: bold;
+    color: var(--accent-blue);
+}
+
+.tableContainer {
+    background: var(--bg-card);
+    border-radius: var(--radius-l);
+    padding: 20px;
+    overflow-x: auto;
+}
+
+.table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.table th {
+    text-align: left;
+    padding: 10px;
+    border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+    color: var(--accent-green);
+    font-family: var(--font-header);
+}
+
+.table td {
+    padding: 10px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    color: var(--text-gray);
+}
+
+.table tr:last-child td {
+    border-bottom: none;
+}
+
+.actionButton {
+    background: var(--accent-blue);
+    color: var(--bg-dark);
+    border: none;
+    padding: 8px 16px;
+    border-radius: var(--radius-s);
+    cursor: pointer;
+    font-weight: bold;
+    transition: filter 0.2s;
+}
+
+.actionButton:hover {
+    filter: brightness(1.1);
+}
+
+.modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.7);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+
+.modalContent {
+    background: var(--bg-card);
+    padding: 30px;
+    border-radius: var(--radius-l);
+    width: 400px;
+    border: 1px solid var(--accent-blue);
+}
+
+.formGroup {
+    margin-bottom: 15px;
+}
+
+.label {
+    display: block;
+    margin-bottom: 5px;
+    color: var(--text-gray);
+}
+.formGroup input, .select {
+    width: 100%;
+    padding: 10px;
+    background: var(--bg-input);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: white;
+    border-radius: var(--radius-s);
+    box-sizing: border-box; /* Ensure padding doesn't affect width */
+}
+
+.formGroup input:focus, .select:focus {
+    outline: none;
+    border-color: var(--accent-blue);
+}
+

@@ -1,0 +1,209 @@
+.tournamentsContainer {
+    padding: 30px;
+    max-width: 1400px;
+    margin: 0 auto;
+    color: var(--text-white);
+}
+
+.pageHeader {
+    text-align: center;
+    margin-bottom: 40px;
+}
+
+.header {
+    font-size: 3rem;
+    font-weight: 800;
+    margin: 0;
+    background: linear-gradient(to right, #fff, #bbb);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    font-family: var(--font-header);
+    text-transform: uppercase;
+    letter-spacing: 2px;
+}
+
+.subHeader {
+    color: var(--text-gray);
+    font-size: 1.2rem;
+    margin-top: 10px;
+}
+
+.grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 25px;
+}
+
+/* Base Card */
+.card, .tournamentCard {
+    background: var(--bg-card);
+    border-radius: var(--radius-l);
+    padding: 25px;
+    position: relative;
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+    border: 1px solid rgba(255,255,255,0.05);
+    display: flex;
+    flex-direction: column;
+    height: 250px; /* Fixed height for uniformity */
+    text-decoration: none;
+    color: var(--text-white);
+}
+
+/* Create Card Styles */
+.createCard {
+    background: rgba(255, 255, 255, 0.03);
+    border: 2px dashed rgba(255, 255, 255, 0.1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+}
+
+.createCard:hover {
+    border-color: var(--accent-green);
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.createPlaceholder {
+    text-align: center;
+}
+
+.plusIcon {
+    font-size: 3rem;
+    color: var(--accent-green);
+    margin-bottom: 10px;
+}
+
+.createPlaceholder h3 {
+    margin: 0;
+    font-size: 1.4rem;
+    font-family: var(--font-header);
+}
+
+.createPlaceholder p {
+    color: var(--text-gray);
+    margin: 5px 0 0;
+}
+
+/* Create Form inside Card */
+.createForm {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.createForm h3 {
+    margin: 0 0 10px 0;
+    font-family: var(--font-header);
+    text-align: center;
+}
+
+.createInput {
+    padding: 10px;
+    background: var(--bg-input);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: var(--radius-s);
+    color: white;
+}
+
+.createInput:focus {
+    border-color: var(--accent-green);
+    outline: none;
+}
+
+.formActions {
+    display: flex;
+    gap: 10px;
+}
+
+.createButton, .cancelButton {
+    flex: 1;
+    padding: 10px;
+    border: none;
+    border-radius: var(--radius-s);
+    cursor: pointer;
+    font-weight: bold;
+    font-family: var(--font-header);
+}
+
+.createButton {
+    background: var(--accent-green);
+    color: #000;
+}
+
+.cancelButton {
+    background: rgba(255, 255, 255, 0.1);
+    color: white;
+}
+
+/* Tournament Card Styles */
+.tournamentCard:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 25px rgba(0,0,0,0.4);
+    border-color: var(--accent-blue);
+}
+
+.cardStatus {
+    position: absolute;
+    top: 15px;
+    right: 15px;
+    font-size: 0.75rem;
+    font-weight: bold;
+    padding: 4px 8px;
+    border-radius: var(--radius-pill);
+    text-transform: uppercase;
+}
+
+.cardStatus[data-status="active"] {
+    background: rgba(0, 255, 133, 0.2);
+    color: var(--accent-green);
+    border: 1px solid var(--accent-green);
+}
+
+.cardStatus[data-status="pending"] {
+    background: rgba(255, 200, 0, 0.2);
+    color: #ffc800;
+    border: 1px solid #ffc800;
+}
+
+.cardStatus[data-status="completed"] {
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--text-gray);
+}
+
+.tourneyName {
+    margin-top: 30px;
+    font-size: 1.5rem;
+    font-family: var(--font-header);
+    margin-bottom: auto; /* Push content down */
+    line-height: 1.2;
+}
+
+.tourneyInfo {
+    display: flex;
+    gap: 15px;
+    margin-bottom: 15px;
+    color: var(--text-gray);
+    font-size: 0.9rem;
+}
+
+.tourneyFooter {
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    padding-top: 15px;
+    text-align: right;
+    color: var(--accent-blue);
+    font-weight: bold;
+    font-size: 0.9rem;
+}
+.sectionHeader {
+    margin: 40px 0 20px;
+    font-family: var(--font-header);
+    color: var(--text-white);
+    font-size: 1.5rem;
+    border-bottom: 2px solid var(--accent-blue);
+    padding-bottom: 5px;
+    display: inline-block;
+}
+

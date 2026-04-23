@@ -1,0 +1,123 @@
+.leaguesContainer {
+    padding: 2rem;
+    max-width: 1200px;
+    margin: auto;
+}
+
+.title {
+    text-align: center;
+    margin-bottom: 0.5rem;
+    font-size: 2.5rem;
+    color: var(--text-white);
+    font-family: var(--font-header);
+}
+
+.subtitle {
+    text-align: center;
+    margin-bottom: 3rem;
+    font-size: 1.1rem;
+    color: var(--text-gray);
+}
+
+.error {
+    text-align: center;
+    color: var(--accent-red);
+    font-size: 1.2rem;
+}
+
+.leaguesGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+    gap: 1.5rem;
+}
+
+.card {
+    background-color: var(--bg-card);
+    border: 1px solid var(--bg-sidebar);
+    border-radius: var(--radius-m);
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.5);
+}
+
+.cardHeader {
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid var(--bg-sidebar);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.leagueName {
+    margin: 0;
+    font-size: 1.4rem;
+    color: var(--text-white);
+    font-family: var(--font-header);
+}
+
+.status {
+    padding: 0.3rem 0.8rem;
+    border-radius: 15px;
+    font-size: 0.8rem;
+    font-weight: bold;
+    text-transform: uppercase;
+}
+
+.status.recruiting {
+    background-color: var(--accent-green);
+    color: var(--bg-dark);
+}
+
+.status.inprogress {
+    background-color: #ffc107; /* Keep yellow for distinct status */
+    color: var(--bg-dark);
+}
+
+.status.completed {
+    background-color: var(--text-gray);
+    color: var(--bg-dark);
+}
+
+.cardBody {
+    padding: 1.5rem;
+    flex-grow: 1;
+}
+
+.cardBody p {
+    margin: 0 0 0.75rem 0;
+    color: var(--text-gray);
+}
+
+.cardBody p strong {
+    color: var(--text-white);
+}
+
+.cardFooter {
+    padding: 1rem 1.5rem;
+    background-color: var(--bg-sidebar);
+    border-top: 1px solid var(--bg-sidebar);
+    border-bottom-left-radius: var(--radius-m);
+    border-bottom-right-radius: var(--radius-m);
+    display: flex;
+    justify-content: flex-end;
+}
+
+.detailsButton {
+    background-color: var(--accent-blue);
+    color: var(--bg-dark);
+    text-decoration: none;
+    padding: 0.7rem 1.5rem;
+    border-radius: var(--radius-pill);
+    font-weight: 600;
+    transition: background-color 0.2s ease;
+}
+
+.detailsButton:hover {
+    background-color: #03d0d9;
+}

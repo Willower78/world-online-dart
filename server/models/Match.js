@@ -5,7 +5,7 @@ const MatchSchema = new Schema({
     gameType: {
         type: String,
         required: true,
-        enum: ['501', 'cricket']
+        enum: ['501', 'cricket', 'bobs_27', '301_di_do']
     },
     players: [{
         type: Schema.Types.ObjectId,

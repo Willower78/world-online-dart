@@ -4,6 +4,7 @@ const auth = require('../middleware/authMiddleware');
 const User = require('../models/User');
 const Tournament = require('../models/Tournament');
 const mongoose = require('mongoose');
+const tournamentService = require('../services/tournamentService');
 
 // @route   POST /api/tournaments
 // @desc    Create a new tournament
@@ -24,7 +25,13 @@ router.post('/', auth, async (req, res) => {
             name,
             gameType,
             maxParticipants: maxParticipants || 8,
-            owner: req.user.id, // Sätt ägaren
+            owner: req.user.id,
+            category: 'Amateur',
+            prizeDistribution: {
+                first: 70,
+                second: 30,
+                house: 0
+            }
         });
 
         const tournament = await newTournament.save();
@@ -67,104 +74,21 @@ router.get('/', auth, async (req, res) => {
 
 // @route   POST /api/tournaments/:id/join
 // @desc    Join a tournament
-// @access  Premium Users
+// @access  Private
 router.post('/:id/join', auth, async (req, res) => {
     try {
-        const user = await User.findById(req.user.id);
-        if (user.subscriptionStatus !== 'active') {
-            return res.status(403).json({ msg: 'Access denied. Premium members only.' });
-        }
+        const tournament = await tournamentService.joinTournament(req.user.id, req.params.id);
+        
+        // Note: The auto-start logic is now implicitly handled by the scheduler or manual start.
+        // This endpoint just handles joining.
 
-        const tournament = await Tournament.findById(req.params.id);
-        if (!tournament) {
-            return res.status(404).json({ msg: 'Tournament not found.' });
-        }
-        if (tournament.status !== 'pending') {
-            return res.status(400).json({ msg: 'This tournament is not open for registration.' });
-        }
-        if (tournament.participants.length >= tournament.maxParticipants) {
-            return res.status(400).json({ msg: 'This tournament is full.' });
-        }
-        if (tournament.participants.includes(req.user.id)) {
-            return res.status(400).json({ msg: 'You are already in this tournament.' });
-        }
-
-        tournament.participants.push(req.user.id);
-
-        // --- AUTO-START & AUTO-CREATE LOGIC ---
-        if (tournament.participants.length >= tournament.maxParticipants) {
-            tournament.status = 'active';
-
-            // 1. Generate a robust bracket with bye handling
-            const participants = [...tournament.participants];
-            let shuffled = participants.sort(() => 0.5 - Math.random());
-            
-            const numParticipants = shuffled.length;
-            const nextPowerOfTwo = Math.pow(2, Math.ceil(Math.log2(numParticipants)));
-            const byes = nextPowerOfTwo - numParticipants;
-    
-            // Add null placeholders for byes
-            for (let i = 0; i < byes; i++) {
-                shuffled.push(null);
-            }
-    
-            const firstRound = [];
-            for (let i = 0; i < shuffled.length; i += 2) {
-                const player1 = shuffled[i];
-                const player2 = shuffled[i + 1];
-                
-                let winner = null;
-                // If a player is null, their opponent gets a bye and wins automatically
-                if (player1 === null && player2 !== null) winner = player2;
-                if (player2 === null && player1 !== null) winner = player1;
-    
-                firstRound.push({
-                    matchId: new mongoose.Types.ObjectId(),
-                    // Filter out nulls so the players array is clean
-                    players: [player1, player2].filter(p => p !== null),
-                    winner: winner, // Assign winner immediately if there was a bye
-                });
-            }
-            
-            tournament.bracket = { rounds: [firstRound] };
-
-            // 2. Auto-create a new, identical tournament
-            let newTournamentName;
-            const nameMatch = tournament.name.match(/^(.*?)(\s*#?\s*)(\d+)$/);
-            if (nameMatch) {
-                // If name ends with a number (e.g., "Weekly #8"), increment it
-                const baseName = nameMatch[1];
-                const separator = nameMatch[2];
-                const newNumber = parseInt(nameMatch[3], 10) + 1;
-                newTournamentName = `${baseName}${separator}${newNumber}`;
-            } else {
-                // Otherwise, just add " #2"
-                newTournamentName = `${tournament.name} #2`;
-            }
-
-            const newTournament = new Tournament({
-                name: newTournamentName,
-                gameType: tournament.gameType,
-                maxParticipants: tournament.maxParticipants,
-            });
-            await newTournament.save();
-
-            // 3. Notify clients
-            const io = req.app.get('socketio');
-            const onlineUsers = req.app.get('onlineUsers');
-            tournament.participants.forEach(participantId => {
-                const socketId = onlineUsers[participantId.toString()];
-                if (socketId) io.to(socketId).emit('tournament_started', tournament);
-            });
-            io.emit('tournaments_updated'); // Tell everyone to refresh their tournament list
-        }
-
-        await tournament.save();
-        res.json({ msg: 'Successfully joined tournament!', tournament: await tournament.populate('participants', 'username') });
+        const populatedTournament = await tournament.populate('participants', 'username');
+        res.json({ msg: 'Successfully joined tournament!', tournament: populatedTournament });
 
     } catch (err) {
-        console.error(err.message);
-        res.status(500).send('Server Error');
+        // The service will throw errors with specific messages
+        console.error(`Error joining tournament: ${err.message}`);
+        res.status(400).json({ msg: err.message });
     }
 });
 
@@ -290,118 +214,35 @@ router.get('/:id', auth, async (req, res) => {
     }
 });
 
+const { reportTournamentMatchWinner } = require('../services/tournamentService');
+
 // @route   POST /api/tournaments/:id/matches/:matchId/report
 // @desc    Report the winner of a tournament match
 // @access  Private (Player in the match)
 router.post('/:id/matches/:matchId/report', auth, async (req, res) => {
     const { winnerId } = req.body;
+    const { id: tournamentId, matchId } = req.params;
 
     try {
         const io = req.app.get('socketio');
-        const tournament = await Tournament.findById(req.params.id);
+        const onlineUsers = req.app.get('onlineUsers');
 
-        if (!tournament) return res.status(404).json({ msg: 'Tournament not found.' });
-        if (tournament.status !== 'active') return res.status(400).json({ msg: 'Tournament is not active.' });
+        const updatedTournament = await reportTournamentMatchWinner({
+            tournamentId,
+            matchId,
+            winnerId,
+            io,
+            onlineUsers
+        });
 
-        let matchFound = null;
-        let currentRoundIndex = -1;
-        let matchInRoundIndex = -1;
-
-        // Find the match and its position
-        for (let i = 0; i < tournament.bracket.rounds.length; i++) {
-            const round = tournament.bracket.rounds[i];
-            const matchIndex = round.findIndex(m => m.matchId.toString() === req.params.matchId);
-            if (matchIndex !== -1) {
-                matchFound = round[matchIndex];
-                currentRoundIndex = i;
-                matchInRoundIndex = matchIndex;
-                break;
-            }
-        }
-
-        if (!matchFound) {
-            return res.status(404).json({ msg: 'Match not found in this tournament.' });
-        }
-
-        // Set the winner for the current match
-        matchFound.winner = winnerId;
-
-        // Check if this was the final match
-        const isFinalMatch = tournament.bracket.rounds[currentRoundIndex].length === 1 && tournament.bracket.rounds.length > 0;
-
-        if (isFinalMatch) {
-            // This is the final, complete the tournament
-            tournament.status = 'completed';
-            tournament.winner = winnerId;
-        } else {
-            // Not the final, advance the winner to the next round
-            const nextRoundIndex = currentRoundIndex + 1;
-            const matchIndexInNextRound = Math.floor(matchInRoundIndex / 2);
-
-            // Ensure the next round exists
-            if (!tournament.bracket.rounds[nextRoundIndex]) {
-                const numMatchesInNextRound = Math.ceil(tournament.bracket.rounds[currentRoundIndex].length / 2);
-                if (numMatchesInNextRound > 0) {
-                    tournament.bracket.rounds[nextRoundIndex] = Array.from({ length: numMatchesInNextRound }, () => ({
-                        matchId: new mongoose.Types.ObjectId(),
-                        players: [],
-                        winner: null
-                    }));
-                }
-            }
-
-            // Move the winner to the next match slot, if the next round exists
-            if (tournament.bracket.rounds[nextRoundIndex] && tournament.bracket.rounds[nextRoundIndex][matchIndexInNextRound]) {
-                const nextMatch = tournament.bracket.rounds[nextRoundIndex][matchIndexInNextRound];
-                nextMatch.players.push(winnerId);
-
-                // If the next match is now full, notify the players
-                if (nextMatch.players.length === 2) {
-                    const onlineUsers = req.app.get('onlineUsers');
-                    const player1Id = nextMatch.players[0].toString();
-                    const player2Id = nextMatch.players[1].toString();
-                    const player1SocketId = onlineUsers[player1Id];
-                    const player2SocketId = onlineUsers[player2Id];
-
-                    const notificationPayload = {
-                        tournamentId: tournament._id,
-                        tournamentName: tournament.name,
-                    };
-
-                    if (player1SocketId) io.to(player1SocketId).emit('tournament_match_ready', notificationPayload);
-                    if (player2SocketId) io.to(player2SocketId).emit('tournament_match_ready', notificationPayload);
-                }
-            }
-        }
-
-        // Mark the bracket as modified for Mongoose to save it
-        tournament.markModified('bracket');
-
-        await tournament.save();
-
-        // Populate the tournament data before sending it back
-        const populatedTournament = await Tournament.findById(tournament._id)
-            .populate('participants', 'username profilePicture')
-            .populate('winner', 'username')
-            .lean(); // Use lean for a plain object
-
-        if (populatedTournament.bracket && populatedTournament.bracket.rounds) {
-            for (const round of populatedTournament.bracket.rounds) {
-                for (const match of round) {
-                    // We need to populate players in each match
-                    if (match.players) {
-                       const populatedPlayers = await User.find({ '_id': { $in: match.players } }).select('username');
-                       match.players = populatedPlayers;
-                    }
-                }
-            }
-        }
-        
-        io.emit('tournaments_updated', populatedTournament); // Send updated tournament to all clients
-        res.json(populatedTournament);
+        res.json(updatedTournament);
 
     } catch (err) {
         console.error('Error reporting tournament match:', err);
+        // The service throws errors with specific messages
+        if (err.message.includes('not found') || err.message.includes('not active')) {
+            return res.status(404).json({ msg: err.message });
+        }
         res.status(500).send('Server Error');
     }
 });
@@ -495,11 +336,6 @@ router.post('/admin/:id/fill', auth, async (req, res) => {
 
         const io = req.app.get('socketio');
         const onlineUsers = req.app.get('onlineUsers');
-        tournament.participants.forEach(participantId => {
-            const socketId = onlineUsers[participantId.toString()];
-            if (socketId) io.to(socketId).emit('tournament_started', tournament);
-        });
-        // Meddela alla deltagare att turneringen har startat
         tournament.participants.forEach(participantId => {
             const socketId = onlineUsers[participantId.toString()];
             if (socketId) io.to(socketId).emit('tournament_started', tournament);

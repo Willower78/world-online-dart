@@ -5,6 +5,40 @@ const Conversation = require('../models/Conversation');
 const Message = require('../models/Message');
 const mongoose = require('mongoose');
 
+// @route   GET /api/chat/conversations
+// @desc    Get all active conversations for the user (Inbox)
+// @access  Private
+router.get('/conversations', auth, async (req, res) => {
+    try {
+        const userId = req.user.id;
+
+        // Find conversations where the user is a participant
+        let conversations = await Conversation.find({
+            participants: userId
+        })
+        .populate('participants', 'username profilePicture')
+        .sort({ updatedAt: -1 }); // Most recent first
+
+        // Add last message preview to each conversation
+        const conversationWithDetails = await Promise.all(conversations.map(async (conv) => {
+            const lastMessage = await Message.findOne({ conversationId: conv._id })
+                .sort({ createdAt: -1 });
+            
+            return {
+                ...conv.toObject(),
+                lastMessage: lastMessage ? lastMessage.content : 'No messages yet',
+                lastMessageDate: lastMessage ? lastMessage.createdAt : conv.updatedAt
+            };
+        }));
+
+        res.json(conversationWithDetails);
+
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).send('Server Error');
+    }
+});
+
 // @route   GET /api/chat/:friendId
 // @desc    Get chat history with a friend
 // @access  Private

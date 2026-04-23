@@ -1,0 +1,12 @@
+<svg viewBox="0 0 200 60" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#04f5ff;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#00ff85;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  <style>
+    .heavy { font: bold 50px 'Oswald', sans-serif; }
+  </style>
+  <text class="heavy" x="10" y="50" fill="url(#grad1)">WOD</text>
+</svg>

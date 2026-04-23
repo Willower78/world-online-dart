@@ -1,0 +1,13 @@
+@echo off
+echo Starting World Online Dart...
+
+echo Starting Backend Server...
+start "Node Backend" cmd /k "cd server && npm start"
+
+echo Starting AI Service...
+start "AI Service" cmd /k "cd ai-backend && python ai_dart_detection.py"
+
+echo Starting Frontend Client...
+start "React Client" cmd /k "cd client && npm start"
+
+echo All services started!

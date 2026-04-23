@@ -1,0 +1,98 @@
+/* Global Theme Variables */
+:root {
+    /* Premier League Theme */
+    --bg-dark: #38003c;
+    --bg-sidebar: #240026;
+    --bg-card: #4d0250;
+    --bg-input: #4d0250;
+    --accent-red: #ff2882;    /* Pink */
+    --accent-blue: #04f5ff;   /* Cyan */
+    --accent-green: #00ff85;
+    --accent-dark-blue: #04f5ff; 
+    --text-white: #ffffff;
+    --text-gray: #dcdcdc;
+    --font-main: 'Roboto', sans-serif;
+    --font-header: 'Oswald', sans-serif;
+
+    /* Professional / Compact Sizing */
+    --radius-l: 12px;   /* Reduced from 20px */
+    --radius-m: 8px;    /* Reduced from 12px */
+    --radius-s: 4px;    /* Reduced from 8px */
+    --radius-pill: 4px; /* More squared off for pro look */
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-main);
+  font-size: 13px; /* Reduced from 14px */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  /* Animated Background */
+  background: linear-gradient(-45deg, #38003c, #240026, #4d0250, #1a001b);
+  background-size: 400% 400%;
+  animation: gradientBG 15s ease infinite;
+  
+  color: var(--text-gray);
+  line-height: 1.3; /* Slightly tighter line height */
+}
+
+@keyframes gradientBG {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+}
+
+code {
+  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New', monospace;
+}
+
+/* --- Global Input Styles --- */
+input[type="text"],
+input[type="password"],
+input[type="email"],
+input[type="search"],
+input[type="date"],
+textarea,
+select {
+    background-color: var(--bg-input);
+    color: var(--text-white);
+    border: 1px solid var(--accent-blue);
+    border-radius: var(--radius-s);
+    padding: 6px 10px; /* Reduced padding further */
+    font-size: 0.85rem; /* Smaller font inside inputs */
+    font-family: var(--font-main);
+    width: 100%;
+    box-sizing: border-box;
+    transition: border-color 0.2s;
+}
+
+input[type="text"]:focus,
+input[type="password"]:focus,
+input[type="email"]:focus,
+input[type="search"]:focus,
+input[type="date"]:focus,
+textarea:focus,
+select:focus {
+    outline: none;
+    border-color: var(--accent-red);
+}
+
+::placeholder {
+    color: var(--text-gray);
+    opacity: 0.7;
+}
+
+/* Global Scrollbar */
+::-webkit-scrollbar {
+    width: 8px;
+}
+::-webkit-scrollbar-track {
+    background: var(--bg-sidebar); 
+}
+::-webkit-scrollbar-thumb {
+    background: var(--bg-card); 
+    border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: var(--accent-red); 
+}
